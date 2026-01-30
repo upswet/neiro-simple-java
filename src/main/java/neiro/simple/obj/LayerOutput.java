@@ -43,7 +43,7 @@ public class LayerOutput extends Layer {
 
             n.iValue=n.b;
             for (Link link : n.iLinks)
-                link.oNeiron.iValue += link.iNeiron.oValue * link.w;
+                n.iValue  += link.iNeiron.oValue * link.w;
             n.oValue=this.activation.apply(n.iValue);
             outputs[i]=n.oValue;
         }

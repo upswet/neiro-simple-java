@@ -73,14 +73,18 @@ public class Net implements Serializable {
 
     /**Прямое распространение сигнала (вычисление)
      * @param inputs - вектор входных значений
+     * @param trainingMode - если истина, то режим обучения, иначе режим работы (влияет на дропауты)
      * @return -вектор выходных значений*/
-    public double[] forward(double[] inputs){
-        ((LayerInput)layers.getFirst()).forward(inputs);
+    public double[] forward(double[] inputs, boolean trainingMode){
+        ((LayerInput)layers.getFirst()).forward(inputs, trainingMode);
 
         for (int i=1; i<layers.size()-1; i++)
-            ((LayerMedium)layers.get(i)).forward();
+            ((LayerMedium)layers.get(i)).forward(trainingMode);
 
         return ((LayerOutput)layers.getLast()).forward();
+    }
+    public double[] forward(double[] inputs){
+        return forward(inputs, false);
     }
 
     /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
@@ -107,7 +111,7 @@ public class Net implements Serializable {
         ((LayerOutput)layers.getLast()).backward(targets, lr);
 
         for (int i=layers.size()-2; i>0; i--)
-            ((LayerMedium)layers.get(i)).backward(lr);
+            ((LayerMedium)layers.get(i)).backward(lr, true);
 
         // Ничего не делаем так как исходящие из входного слоя связи уже обновлены первым промежуточным слоем, а дельты вычислять не надо так как входящих связей нет
         // ((LayerInput)layers.getFirst()).backward();
@@ -135,7 +139,7 @@ public class Net implements Serializable {
                 if (i > 0 && i % 5000 == 0) System.out.println("processed " + i + " from " + targets.length);
 
                 //единичная тренировка
-                forward(inputs[i]);
+                forward(inputs[i], true);
                 backward(targets[i], lr);
 
                 //countCalcTestTmp
@@ -171,7 +175,7 @@ public class Net implements Serializable {
 
         int success=0;
         for(int i=0; i< inputs.length; i++){
-            double[] actual = forward(inputs[i]);
+            double[] actual = forward(inputs[i], false);
             if (estimation.process(actual, targets[i], acceptableError))
                 success++;
         }

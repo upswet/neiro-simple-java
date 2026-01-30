@@ -20,10 +20,9 @@ public class ServerApplication {
 		//SpringApplication.run(ServerApplication.class, args);
 
 		//XOR
-
 		Net net = new Net(List.of(
-				(layer) -> new LayerInput(2),
-				(layer) -> new LayerMedium.LayerMediumRelu(layer, 3),
+				(layer) -> new LayerInput(2, 0.0),
+				(layer) -> new LayerMedium.LayerMediumRelu(layer, 3, 0.0),
 				(layer) -> new LayerOutput.LayerOutputRelu(layer,1)
 		));
 
@@ -72,8 +71,8 @@ public class ServerApplication {
 		System.out.println("{0,0} = "+ Arrays.toString(net.forward((new double[]{0, 0}))));
 
 
-		//MNIST
-	/*	List<double[]> datasTrain = new ArrayList<>();
+		/*		//MNIST
+		List<double[]> datasTrain = new ArrayList<>();
 		List<double[]> targetsTrain = new ArrayList<>();
 		List<double[]> datasTest = new ArrayList<>();
 		List<double[]> targetsTest = new ArrayList<>();
@@ -82,8 +81,8 @@ public class ServerApplication {
 		prepareDataForMnist(targetsTest, datasTest, "d:\\Work\\Project\\0files\\mnist\\mnist_test.csv");
 
 		Net net = new Net(List.of(
-				(layer) -> new LayerInput(784),
-				(layer) -> new LayerMedium.LayerMediumSigmoid(layer, 100),
+				(layer) -> new LayerInput(784, 0.5),
+				(layer) -> new LayerMedium.LayerMediumSigmoid(layer, 100, 0.2),
 				(layer) -> new LayerOutput.LayerOutputSigmoid(layer,10)
 		));
 
@@ -100,7 +99,7 @@ public class ServerApplication {
 						0.01),
 				0.98
 		);
-	 */
+		 */
 	}
 
 	/**Подготовка данных MNIST*/

@@ -15,8 +15,10 @@ public abstract class Layer implements Serializable{
     /**Нейрон*/
     @FieldDefaults(level = AccessLevel.PUBLIC)
     public static class Neiron implements Serializable{
+        double dropoutMask = 1.0; // маска dropout (0 - отключен, 1 - активен)
+
         double b = 0F; //смещение
-        double iValue=0F;//входное значение  (взвешенная сумма переданных сигналов от нейронов предыдущего слоя) + смещеие
+        double iValue=0F;//входное значение (взвешенная сумма переданных сигналов от нейронов предыдущего слоя) + смещение
         double oValue;//выходное значение - то что передаётся от этого нейрона нейрону следующего слоя.
         double delta; //дельта ошибки
         List<Link> iLinks = new ArrayList<>();
