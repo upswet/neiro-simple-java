@@ -86,14 +86,19 @@ public class LayerOutput extends Layer {
     /**Выходной слой - сигмоида*/
     public static class LayerOutputSigmoid extends LayerOutput{
         public LayerOutputSigmoid(Layer prevoisLayer, int nCount){
-            super(nCount, prevoisLayer, Net.SIGMOID, Net.SIGMOID_DERIVATIVE, Net.SIGMOID_INIT(prevoisLayer.neirons.size()));
+            super(nCount, prevoisLayer, Net.SIGMOID, Net.SIGMOID_DERIVATIVE, Net.SIGMOID_INIT_XAVIER(prevoisLayer.neirons.size(), nCount));
         }
     }
-
+    /**Выходной слой - тангес*/
+    public static class LayerOutputTanh extends LayerOutput{
+        public LayerOutputTanh(Layer prevoisLayer, int nCount){
+            super(nCount, prevoisLayer, Net.TANH, Net.TANH_DERIVATIVE, Net.TANH_INIT_XAVIER(prevoisLayer.neirons.size(), nCount));
+        }
+    }
     /**Выходной слой - релу*/
     public static class LayerOutputRelu extends LayerOutput{
         public LayerOutputRelu(Layer prevoisLayer, int nCount){
-            super(nCount, prevoisLayer, Net.RELU, Net.RELU_DERIVATIVE, Net.RELU_INIT(prevoisLayer.neirons.size()));
+            super(nCount, prevoisLayer, Net.RELU, Net.RELU_DERIVATIVE, Net.RELU_INIT_HE(prevoisLayer.neirons.size()));
         }
     }
 }

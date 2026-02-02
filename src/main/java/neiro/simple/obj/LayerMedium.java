@@ -96,13 +96,19 @@ public class LayerMedium extends Layer {
     /**Промежуточный слой - сигмоида*/
     public static class LayerMediumSigmoid extends LayerMedium{
         public LayerMediumSigmoid(Layer prevoisLayer, int nCount, double dropoutRate){
-            super(nCount, prevoisLayer, Net.SIGMOID, Net.SIGMOID_DERIVATIVE, Net.SIGMOID_INIT(prevoisLayer.neirons.size()), dropoutRate);
+            super(nCount, prevoisLayer, Net.SIGMOID, Net.SIGMOID_DERIVATIVE, Net.SIGMOID_INIT_XAVIER(prevoisLayer.neirons.size(), nCount), dropoutRate);
+        }
+    }
+    /**Промежуточный слой - тангес*/
+    public static class LayerMediumTanh extends LayerMedium{
+        public LayerMediumTanh(Layer prevoisLayer, int nCount, double dropoutRate){
+            super(nCount, prevoisLayer, Net.TANH, Net.TANH_DERIVATIVE, Net.TANH_INIT_XAVIER(prevoisLayer.neirons.size(), nCount), dropoutRate);
         }
     }
     /**Промежуточный слой - релу*/
     public static class LayerMediumRelu extends LayerMedium{
         public LayerMediumRelu(Layer prevoisLayer, int nCount, double dropoutRate){
-            super(nCount, prevoisLayer, Net.RELU, Net.RELU_DERIVATIVE, Net.RELU_INIT(prevoisLayer.neirons.size()), dropoutRate);
+            super(nCount, prevoisLayer, Net.RELU, Net.RELU_DERIVATIVE, Net.RELU_INIT_HE(prevoisLayer.neirons.size()), dropoutRate);
         }
     }
 }

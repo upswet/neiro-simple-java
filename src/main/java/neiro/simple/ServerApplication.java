@@ -2,32 +2,31 @@ package neiro.simple;
 
 import lombok.SneakyThrows;
 import neiro.simple.obj.*;
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
+
+import static neiro.simple.obj.Net.*;
 
 @SpringBootApplication
 public class ServerApplication {
 	public static void main(String[] args) {
 		//SpringApplication.run(ServerApplication.class, args);
 
+		/*
 		//XOR
 		Net net = new Net(List.of(
 				(layer) -> new LayerInput(2, 0.0),
-				(layer) -> new LayerMedium.LayerMediumRelu(layer, 3, 0.0),
-				(layer) -> new LayerOutput.LayerOutputRelu(layer,1)
+				(layer) -> new LayerMedium.LayerMediumTanh(layer, 3, 0.0),
+				(layer) -> new LayerOutput.LayerOutputTanh(layer,1)
 		));
 
 		Net.save("net1.save", net);
-		Net net2=Net.load("net1.save");
+		net =Net.load("net1.save");
 		net.print();
 
 		net.trains(
@@ -46,7 +45,7 @@ public class ServerApplication {
 				0.2,
 				5000,
 				100,
-				()->net.tests(
+				new Net.TestWrapper(
 						new double[][]{
 								new double[]{0F, 0F},
 								new double[]{1F, 0F},
@@ -59,7 +58,7 @@ public class ServerApplication {
 								new double[]{1F},
 								new double[]{0F},
 						},
-						estimationXor,
+						estimationLoss,
 						0.1),
 				0.98
 		);
@@ -69,9 +68,9 @@ public class ServerApplication {
 		System.out.println("{1,0} = "+ Arrays.toString(net.forward((new double[]{1, 0}))));
 		System.out.println("{0,1} = "+ Arrays.toString(net.forward((new double[]{0, 1}))));
 		System.out.println("{0,0} = "+ Arrays.toString(net.forward((new double[]{0, 0}))));
+*/
 
-
-		/*		//MNIST
+		//MNIST
 		List<double[]> datasTrain = new ArrayList<>();
 		List<double[]> targetsTrain = new ArrayList<>();
 		List<double[]> datasTest = new ArrayList<>();
@@ -81,8 +80,8 @@ public class ServerApplication {
 		prepareDataForMnist(targetsTest, datasTest, "d:\\Work\\Project\\0files\\mnist\\mnist_test.csv");
 
 		Net net = new Net(List.of(
-				(layer) -> new LayerInput(784, 0.5),
-				(layer) -> new LayerMedium.LayerMediumSigmoid(layer, 100, 0.2),
+				(layer) -> new LayerInput(784, 0.0),
+				(layer) -> new LayerMedium.LayerMediumTanh(layer, 100, 0.0),
 				(layer) -> new LayerOutput.LayerOutputSigmoid(layer,10)
 		));
 
@@ -92,14 +91,13 @@ public class ServerApplication {
 				0.2,
 				1,
 				-1,
-				()->net.tests(
+				new Net.TestWrapper(
 						datasTest.toArray(double[][]::new),
 						targetsTest.toArray(double[][]::new),
-						estimation,
+						estimationMax,
 						0.01),
 				0.98
 		);
-		 */
 	}
 
 	/**Подготовка данных MNIST*/
@@ -122,26 +120,4 @@ public class ServerApplication {
 		}
 	}
 
-	/**вернёт индекс максимального элемента из вектора*/
-	public static Integer findMax(double[] arr) {
-		double max = -999F;
-		Integer imax = -1;
-		for (int i = 0; i < arr.length; i++)
-			if (arr[i] > max) {
-				max = arr[i];
-				imax = i;
-			}
-		return imax;
-	}
-
-	public static Net.Estimation estimation = (double[] outputVec, double[] expectedVec, double acceptableError) ->{
-		return findMax(outputVec).equals(findMax(expectedVec));
-	};
-
-	public static Net.Estimation estimationXor = (double[] outputVec, double[] expectedVec, double acceptableError) ->{
-		double loss=0;
-		for(int i=0; i<outputVec.length;i++)
-			loss = loss + Math.abs(expectedVec[i]-outputVec[i]);
-		return loss < acceptableError;
-	};
 }

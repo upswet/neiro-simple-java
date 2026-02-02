@@ -1,29 +1,19 @@
 package neiro.simple.obj;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 import java.io.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 public class Net implements Serializable {
-    /**Функции*/
-    public static Supplier<Double> SIMPLE_INIT = (Supplier<Double> & Serializable) () -> Math.random() - 0.5;
-
-    //Когда использовать сигмоиду: небольшие сети. Когда идёт работа с отрицательными вероятностями
-    public static UnaryOperator<Double> SIGMOID = (UnaryOperator<Double> & Serializable)x -> 1.0 / (1 + Math.exp(-x));
-    public static Function<Layer.Neiron, Double> SIGMOID_DERIVATIVE =  ( Function<Layer.Neiron, Double> & Serializable) n -> (
-            //SIGMOID.apply(n.iValue) * (1 - SIGMOID.apply(n.iValue)) /// классический вариант
-            n.oValue * (1 - n.oValue) // ускоренный вариант
-    );
-    public static Supplier<Double> SIGMOID_INIT (int fanIn) {
-        double std = Math.sqrt(2.0 / fanIn);
+    private static Supplier<Double>  GENERATE_NORMAL(double std){
         return () -> {
             // Генерация случайного числа из нормального распределения
             double u1 = Math.random();
@@ -33,10 +23,35 @@ public class Net implements Serializable {
         };
     }
 
+    /**Функции*/
+    public static Supplier<Double> SIMPLE_INIT = (Supplier<Double> & Serializable) () -> Math.random() - 0.5;
+
+    //Когда использовать сигмоиду: небольшие сети. Когда идёт работа с отрицательными вероятностями
+    public static UnaryOperator<Double> SIGMOID = (UnaryOperator<Double> & Serializable)x -> 1.0 / (1 + Math.exp(-x));
+    public static Function<Layer.Neiron, Double> SIGMOID_DERIVATIVE =  ( Function<Layer.Neiron, Double> & Serializable) n -> (
+            //SIGMOID.apply(n.iValue) * (1 - SIGMOID.apply(n.iValue)) /// классический вариант
+            n.oValue * (1 - n.oValue) // ускоренный вариант
+    );
+    public static Supplier<Double> SIGMOID_INIT_XAVIER (int fanIn, int fanOut) {
+        double std = Math.sqrt(2.0 / (fanIn + fanOut));
+        return GENERATE_NORMAL(std);
+    }
+
+    //тангес
+    public static UnaryOperator<Double> TANH = (UnaryOperator<Double> & Serializable) x -> Math.tanh(x);
+    public static Function<Layer.Neiron, Double> TANH_DERIVATIVE = (Function<Layer.Neiron, Double> & Serializable) n -> 1.0 - n.oValue * n.oValue; // производная tanh: 1 - tanh²(x)
+    public static Supplier<Double> TANH_INIT_XAVIER(int fanIn, int fanOut) {
+        double std = 2.0/(fanIn + fanOut);// Инициализация Xavier/Glorot для tanh
+        return GENERATE_NORMAL(std);
+    }
+
     //Когда использовать релу: критична скорость обучения. Нельзя исп с отриц весами (теряется инф)
     public static UnaryOperator<Double> RELU = (UnaryOperator<Double> & Serializable) x -> x > 0 ? x : 0.01 * x;
     public static Function<Layer.Neiron, Double> RELU_DERIVATIVE = (Function<Layer.Neiron, Double> & Serializable) n -> n.iValue > 0 ? 1.0 : 0.01;
-    public static Supplier<Double> RELU_INIT(int fanIn) {double std = Math.sqrt(2.0 / fanIn);return () -> Math.random() * std * 2 - std;} // He для ReLU
+    public static Supplier<Double> RELU_INIT_HE(int fanIn) {
+        double std = Math.sqrt(2.0 / fanIn);
+        return GENERATE_NORMAL(std);
+    }
 
 
     /**Интерфейс для тестирования нейросети*/
@@ -123,9 +138,9 @@ public class Net implements Serializable {
      * @param lr - коэффициент обучения
      * @param maxEpochCount - максимальное количество эпох обучения
      * @param countCalcTest - после проведения какого кол-ва подходов будет запускаться тестирование для получениия оценки (-1 чтобы не запускать вообще)
-     * @param testsFun - функция запуска тестового набора и оценки кол-ва верных ответов
+     * @param teatParam - параметры для теста
      * @param testValueStop - значение при превышении которого останавливаем обучение*/
-    public void trains(double[][] inputs, double[][] targets, double lr, int maxEpochCount, int countCalcTest, Supplier<Double> testsFun, double testValueStop){
+    public void trains(double[][] inputs, double[][] targets, double lr, int maxEpochCount, int countCalcTest, TestWrapper teatParam, double testValueStop){
         if(inputs.length!=targets.length) throw new RuntimeException("Несовпадение размерности");
 
         int epoch=0; //текущая эпоха
@@ -145,7 +160,7 @@ public class Net implements Serializable {
                 //countCalcTestTmp
                 if (countCalcTestTmp>=0) {
                     if (countCalcTestTmp-- == 0) {
-                        testValue = testsFun.get();
+                        testValue = tests(teatParam);
                         if (testValue>=testValueStop)
                             break;
                         System.out.println("tests = " + String.format("%.3f", testValue));
@@ -160,27 +175,24 @@ public class Net implements Serializable {
         System.out.println("all duration(ms)=" + Duration.between(start, Instant.now()).toMillis());
 
         if (testValue<testValueStop)
-            testValue = testsFun.get();
+            testValue = tests(teatParam);
         System.out.println("end tests = " + String.format("%.3f", testValue));
     }
 
     /**Запуск тестов
-     * @param inputs - набор входных векторов
-     * @param targets - набор целевых векторов
-     * @param estimation - функция проверки результатов тестирования
-     * @param acceptableError - допустимая ошибка при которой ответ считается верным
+     * @param testParam - параметры запуска тестов
      * @return - процент успешно пройдённых тестов*/
-    public double tests(double[][] inputs, double[][] targets, Estimation estimation, double acceptableError){
-        if (inputs.length != targets.length) throw new RuntimeException("Несоответствие размерности!");
+    public double tests(TestWrapper testParam){
+        if (testParam.inputs.length != testParam.targets.length) throw new RuntimeException("Несоответствие размерности!");
 
         int success=0;
-        for(int i=0; i< inputs.length; i++){
-            double[] actual = forward(inputs[i], false);
-            if (estimation.process(actual, targets[i], acceptableError))
+        for(int i=0; i< testParam.inputs.length; i++){
+            double[] actual = forward(testParam.inputs[i], false);
+            if (testParam.estimation.process(actual, testParam.targets[i], testParam.acceptableError))
                 success++;
         }
 
-        return (double) success / inputs.length;
+        return (double) success / testParam.inputs.length;
     }
 
     /**
@@ -226,5 +238,42 @@ public class Net implements Serializable {
     public void  print(){
         for(int i=0; i<layers.size(); i++)
             layers.get(i).print(i);
+    }
+
+    /**вернёт индекс максимального элемента из вектора*/
+    public static Integer findMax(double[] arr) {
+        double max = -999F;
+        Integer imax = -1;
+        for (int i = 0; i < arr.length; i++)
+            if (arr[i] > max) {
+                max = arr[i];
+                imax = i;
+            }
+        return imax;
+    }
+
+    public static Net.Estimation estimationMax = (double[] outputVec, double[] expectedVec, double acceptableError) ->{
+        return findMax(outputVec).equals(findMax(expectedVec));
+    };
+
+    public static Net.Estimation estimationLoss = (double[] outputVec, double[] expectedVec, double acceptableError) ->{
+        double loss=0;
+        for(int i=0; i<outputVec.length;i++)
+            loss = loss + Math.abs(expectedVec[i]-outputVec[i]);
+        return loss < acceptableError;
+    };
+
+    /**Враппер для тестовых параметров
+     *      * @param inputs - набор входных векторов
+     *      * @param targets - набор целевых векторов
+     *      * @param estimation - функция проверки результатов тестирования
+     *      * @param acceptableError - допустимая ошибка при которой ответ считается верным
+     *      */
+    @AllArgsConstructor
+    public static class TestWrapper{
+        double[][] inputs;
+        double[][] targets;
+        Estimation estimation;
+        double acceptableError;
     }
 }
