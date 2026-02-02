@@ -1,4 +1,4 @@
-package neiro.simple.obj;
+package neiro.simple.mlp;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -52,9 +52,9 @@ public class LayerMedium extends Layer {
                 n.dropoutMask = 1.0; // вне режима тренировки нейрон всегда активен
 
 
-            n.iValue=n.b;
+            n.iValue=n.bias;
             for (Link link : n.iLinks)
-                n.iValue  += link.iNeiron.oValue * link.w;
+                n.iValue  += link.iNeiron.oValue * link.weight;
             n.oValue=this.activation.apply(n.iValue);
 
             // Для inverted dropout: масштабируем только при обучении
@@ -80,15 +80,15 @@ public class LayerMedium extends Layer {
 
             double delta = 0F;
             for (Link outLink : neiron.oLinks)
-                delta += outLink.oNeiron.delta * outLink.w;
+                delta += outLink.oNeiron.delta * outLink.weight;
             neiron.delta = activationDer.apply(neiron) * delta;
 
-            neiron.b -= neiron.delta*lr;//вычисление изменения смещения текущего нейрона
+            neiron.bias -= neiron.delta*lr;//вычисление изменения смещения текущего нейрона
 
             //корректируем веса входящих связей для нейрона
             for (Link inLink : neiron.iLinks) {
                 double grad = inLink.iNeiron.oValue * neiron.delta;
-                inLink.w -= lr * grad;
+                inLink.weight -= lr * grad;
             }
         }
     }

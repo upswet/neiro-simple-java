@@ -1,7 +1,6 @@
-package neiro.simple.obj;
+package neiro.simple.mlp;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 
 import java.io.*;
 import java.time.Duration;

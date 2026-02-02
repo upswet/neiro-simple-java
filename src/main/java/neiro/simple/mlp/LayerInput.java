@@ -1,4 +1,4 @@
-package neiro.simple.obj;
+package neiro.simple.mlp;
 
 /**Входной слой*/
 public class LayerInput extends Layer {

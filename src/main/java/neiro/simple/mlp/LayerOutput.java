@@ -1,8 +1,5 @@
-package neiro.simple.obj;
+package neiro.simple.mlp;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -41,9 +38,9 @@ public class LayerOutput extends Layer {
         for(int i=0; i<neirons.size(); i++) {
             Neiron n = neirons.get(i);
 
-            n.iValue=n.b;
+            n.iValue=n.bias;
             for (Link link : n.iLinks)
-                n.iValue  += link.iNeiron.oValue * link.w;
+                n.iValue  += link.iNeiron.oValue * link.weight;
             n.oValue=this.activation.apply(n.iValue);
             outputs[i]=n.oValue;
         }
@@ -66,12 +63,12 @@ public class LayerOutput extends Layer {
             calcDelta(neiron, targets[i]);
 
             //вычисляем изменение смещения
-            neiron.b -=neiron.delta*lr;
+            neiron.bias -=neiron.delta*lr;
 
             //корректируем веса входящих связей для нейрона
             for (Link inLink : neiron.iLinks) {
                 double grad = inLink.iNeiron.oValue * neiron.delta;
-                inLink.w -=lr * grad;
+                inLink.weight -=lr * grad;
             }
         }
     }

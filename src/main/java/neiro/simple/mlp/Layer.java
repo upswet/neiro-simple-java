@@ -1,4 +1,4 @@
-package neiro.simple.obj;
+package neiro.simple.mlp;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -6,9 +6,7 @@ import lombok.experimental.FieldDefaults;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 
 /**Абстрактный класс слоя*/
 public abstract class Layer implements Serializable{
@@ -17,7 +15,7 @@ public abstract class Layer implements Serializable{
     public static class Neiron implements Serializable{
         double dropoutMask = 1.0; // маска dropout (0 - отключен, 1 - активен)
 
-        double b = 0F; //смещение
+        double bias = 0F; //смещение
         double iValue=0F;//входное значение (взвешенная сумма переданных сигналов от нейронов предыдущего слоя) + смещение
         double oValue;//выходное значение - то что передаётся от этого нейрона нейрону следующего слоя.
         double delta; //дельта ошибки
@@ -32,7 +30,7 @@ public abstract class Layer implements Serializable{
         public static Neiron createOutputNeiron(){Neiron n = new Neiron();n.oLinks=null;return n;}
 
         public void print(int layerNumber, int neironNumber){
-            System.out.println("\t\tneiron "+layerNumber+"_"+neironNumber+" ("+"b="+String.format("%.4f", b)+", delta="+String.format("%.4f",delta)+", iValue="+String.format("%.4f",iValue)+", oValue="+String.format("%.4f",oValue)+")");
+            System.out.println("\t\tneiron "+layerNumber+"_"+neironNumber+" ("+"b="+String.format("%.4f", bias)+", delta="+String.format("%.4f",delta)+", iValue="+String.format("%.4f",iValue)+", oValue="+String.format("%.4f",oValue)+")");
             if(oLinks==null) return;
             for(int i=0; i<oLinks.size(); i++)
                 oLinks.get(i).print(layerNumber, neironNumber, i);
@@ -40,7 +38,7 @@ public abstract class Layer implements Serializable{
     }
     /**Связь между нейронами*/
     public static class Link implements Serializable{
-        double w = 0F; //вес связи
+        double weight = 0F; //вес связи
         Neiron iNeiron;
         Neiron oNeiron;
 
@@ -51,7 +49,7 @@ public abstract class Layer implements Serializable{
          * @return - созданная связь*/
         public static Link createLink(Neiron iNeiron, Neiron oNeiron, Supplier<Double> initWeightFun){
             Link link = new Link();
-            link.w = initWeightFun.get();
+            link.weight = initWeightFun.get();
             link.iNeiron = iNeiron;
             link.oNeiron = oNeiron;
 
@@ -61,7 +59,7 @@ public abstract class Layer implements Serializable{
         }
 
         public void print(int layerNumber, int neironNumber, int linkNumber){
-            System.out.println("\t\t\tlink "+layerNumber+"_"+neironNumber+" => "+(layerNumber+1)+"_"+linkNumber+" : "+String.format("%.4f", w));
+            System.out.println("\t\t\tlink "+layerNumber+"_"+neironNumber+" => "+(layerNumber+1)+"_"+linkNumber+" : "+String.format("%.4f", weight));
         }
     }
 
