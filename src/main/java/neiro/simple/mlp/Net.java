@@ -424,8 +424,7 @@ public class Net implements Serializable {
                 neirons.get(i).oValue = inputs[i];
                 if (trainingMode && dropoutRate>0)
                     if (Math.random() < dropoutRate)
-                        neirons.get(i).oValue = Math.random();
-
+                        neirons.get(i).oValue = 0.0;
             }
         }
 
@@ -643,6 +642,7 @@ public class Net implements Serializable {
         /**
          * Выходной слой с softmax и кросс-энтропией.
          * Предполагается, что целевой вектор имеет one-hot кодирование (то есть там только одна единичка, остальное 0)
+         * Для софтмакса коэффициент обучения обычно нужен меньше чем для сигмоида и тангеса примерно раз в десять.
          */
         public static class LayerOutputSoftmaxAndCrossEntity extends LayerOutput {
 

@@ -93,12 +93,12 @@ public class ExampleMLP {
                 (layer) -> new Net.LayerInput(784, 0.0),
                 (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
                 (layer) -> new Net.LayerOutput.LayerOutputSigmoid(layer, 10)
-        ));*/
+        )); коэф 0.2*/
         Net net = new Net(List.of(
                 (layer) -> new Net.LayerInput(784, 0.0),
                 (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
                 (layer) -> new Net.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 10)
-        ));
+        )); //коэф об 0,02
 
         double[][] inputs = datasTrain.toArray(double[][]::new);
         double[][] targets = targetsTrain.toArray(double[][]::new);
