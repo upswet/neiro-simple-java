@@ -1,18 +1,67 @@
 package neiro.simple.mlp;
 
-import lombok.AllArgsConstructor;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
 
 import java.io.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
+/**Реализация нейросети класса MLP (Полносвязнная нейроная сеть"). Каждый нейрон реализован как объект. Без матричных вычислений
+ *
+ * Работа сети. Прямой проход (forward propagation)
+ * 1. Для нейронов входного слоя входным и выходным значением устанавливается вектор признаков Х подаваемый на вход нейросети.
+ * 2. Для каждого следующего слоя вычисляем
+ *      вектор входного значения j-го слоя Zj = W*X+b  где Х - вектор выходных значений из предыдущего слоя, W — матрица весов связей между нейронами предыдущего слоя и текущего, b — вектор смещений
+ *      вектор выходного значения j-го слоя Y = f(Z) где f - нелинейная функция активации
+ * 3. Процесс повторяется для всех слоёв, включая выходной. Выходные значения нейронов выходного слоя и есть вектор ответа Y
+ *
+ * Обучение MLP: обратное распространение (backpropagation). Метод обратного распространения ошибки с градиентным спуском
+ * 0. Осуществляем прямой проход получая из вектора входных данных Х вектор выходных данных Y а также для каждого слоя j запоминая вектора Zj - вектор входа конкретно для j-го слоя (понятно что Z0 == X)
+ * Термины:
+ *    Функция потерь (ошибки) - скалярная метрика, показывающая, насколько сильно предсказание сети Y отличается от истинного значения T. Обучение это минимизация функции потерь.
+ *    Дельта ошибки - частная производная функции потерь по взвешенному входу нейрона. Показывает насколько сильно изменение входа в нейрон повлияет на его ошибку.
+ *
+ * 1. Имея вектор правильного ответа T для нейронов выходного слоя
+ * 1.1 Вычисляем дельту ошибки как частную производную функции потерь по взвешенному входу этого нейрона (dL/dz) = dL/dy * f~(z) то есть частная производная фун ошибки по выходу нейрона * производную функции его активации от взвешенного входа нейрона
+ * Примеры функции потерь:
+ *
+ * MSE (Mean Squared Error) для задач регрессии = 1/2 * (target - output)^2 тогда её производная (output - target)
+ *
+ * Cross-Entropy для классификации = - сумма (t * log(y)) где суммируем по всем классифицируемым классам, t - истинное значение нейрона, а y - рассчитанное значение нейрона или softmax(z) то есть предсказанная вероятность для класса i.
+ * Для случая, когда на выходном слое используется softmax в качестве функции активации, а в качестве функции потерь — кросс-энтропия (Cross-Entropy), вычисление дельты ошибки и градиентов имеет важное упрощение
+ * дельта ошибки тогда будет y - t. Это справедливо при условии, что целевой вектор T нормирован (сумма его компонент равна 1, что выполняется для one-hot кодирования или сглаженных меток). Никаких дополнительных сомножителей, связанных с производной активации, здесь не требуется, так как они уже "сократились" благодаря сочетанию softmax и кросс-энтропии.
+ * градиент вычисляется стандартно
+ * Представленный алгоритм для выходного слоя (пункт 1.1) специфичен именно для пары softmax + кросс-энтропия. Если бы на выходном слое использовалась другая активация (например, сигмоида) и другая функция потерь (например, среднеквадратичная), формула дельты была бы иной (включала бы производную активации). Для скрытых слоёв общий принцип сохраняется всегда.
+ *
+ * 1.2 Вычисляем градиент функции потерь для текущего слоя = дельта-ошибки * выход-предыдущего-слоя.
+ * Минимальное объяснение: Функция потерь зависит от выхода текущего слоя, который зависит от взвешенного входа (Z) текущего слоя, который зависит от весов связей предыдущего слоя с текущим и выхода предыдущего слоя
+ * Конкретнее вычисляем градиент по каждому весу, соединяющему нейрон i предыдущего слоя с нейроном j выходного слоя
+ * Градиент = дельта-ошибки-нейрона-j * выход-нейрона-i
+ * 1.3 Корректируем веса связей выходного слоя, двигаясь в сторону, противоположную градиенту (т.к. градиент это возрастание фун ошибки, а нам надо её уменьшить, то есть спускаться), с заданной скоростью обучения
+ * Конкретнее, для каждой входной связи из нейрона i предыдущего слоя в текущий нейрон выходного слоя j изменяем вес связи как
+ * Wij(новый) = Wij(старый) -коэф-скорости-обучения * градиент-функции-потерь
+ * При использовании метода момента при изменение веса связи дополнительно учитывается предыдущее изменение её веса (имитация инерции)
+ *
+ * 2. Для промежуточных (скрытых) слоёв алгоритм аналогичен, но дельта ошибки вычисляется иначе, поскольку для нейронов скрытого слоя неизвестно целевое значение.
+ * Дельта i-го нейрона скрытого слоя l (δ_i^(l)) вычисляется рекуррентно через дельты нейронов следующего слоя (l+1)
+ * δ_i^(l) = ( ∑_k δ_k^(l+1) · w_ik^(l+1) ) · f'(z_i^(l)), где w_ik^(l+1) — веса, связывающие данный i-й нейрон с нейронами k следующего слоя, а f'(z_i^(l)) — производная активационной функции текущего нейрона. Суммирование ведётся по всем нейронам следующего слоя, в которые передаёт сигнал текущий нейрон.
+ * Градиент ошибки по весам скрытого слоя l вычисляется как произведение дельты текущего нейрона на выход соответствующего нейрона из предыдущего слоя (l-1)
+ *
+ * 3. Процесс повторяется для всех слоёв в обратном порядке (начиная с выходного и заканчивая первым скрытым) — это и есть обратное распространение ошибки. После обновления всех весов выполняется следующая итерация (прямой проход с новыми весами) на том же или новом обучающем примере (в зависимости от режима обучения — стохастический, пакетный или мини-батч). Итерации продолжаются до достижения критерия остановки (минимум ошибки, заданное число эпох и т.д.).
+ * */
 public class Net implements Serializable {
-    private static Supplier<Double>  GENERATE_NORMAL(double std){
+    /**Функции инициализации весов*/
+
+    //
+    private static Supplier<Double> INIT_NORMAL(double std){
         return () -> {
             // Генерация случайного числа из нормального распределения
             double u1 = Math.random();
@@ -27,29 +76,29 @@ public class Net implements Serializable {
 
     //Когда использовать сигмоиду: небольшие сети. Когда идёт работа с отрицательными вероятностями
     public static UnaryOperator<Double> SIGMOID = (UnaryOperator<Double> & Serializable)x -> 1.0 / (1 + Math.exp(-x));
-    public static Function<Layer.Neiron, Double> SIGMOID_DERIVATIVE =  ( Function<Layer.Neiron, Double> & Serializable) n -> (
+    public static Function<Neiron, Double> SIGMOID_DERIVATIVE =  ( Function<Neiron, Double> & Serializable) n -> (
             //SIGMOID.apply(n.iValue) * (1 - SIGMOID.apply(n.iValue)) /// классический вариант
             n.oValue * (1 - n.oValue) // ускоренный вариант
     );
     public static Supplier<Double> SIGMOID_INIT_XAVIER (int fanIn, int fanOut) {
         double std = Math.sqrt(2.0 / (fanIn + fanOut));
-        return GENERATE_NORMAL(std);
+        return INIT_NORMAL(std);
     }
 
     //тангес
     public static UnaryOperator<Double> TANH = (UnaryOperator<Double> & Serializable) x -> Math.tanh(x);
-    public static Function<Layer.Neiron, Double> TANH_DERIVATIVE = (Function<Layer.Neiron, Double> & Serializable) n -> 1.0 - n.oValue * n.oValue; // производная tanh: 1 - tanh²(x)
+    public static Function<Neiron, Double> TANH_DERIVATIVE = (Function<Neiron, Double> & Serializable) n -> 1.0 - n.oValue * n.oValue; // производная tanh: 1 - tanh²(x)
     public static Supplier<Double> TANH_INIT_XAVIER(int fanIn, int fanOut) {
         double std = 2.0/(fanIn + fanOut);// Инициализация Xavier/Glorot для tanh
-        return GENERATE_NORMAL(std);
+        return INIT_NORMAL(std);
     }
 
     //Когда использовать релу: критична скорость обучения. Нельзя исп с отриц весами (теряется инф)
     public static UnaryOperator<Double> RELU = (UnaryOperator<Double> & Serializable) x -> x > 0 ? x : 0.01 * x;
-    public static Function<Layer.Neiron, Double> RELU_DERIVATIVE = (Function<Layer.Neiron, Double> & Serializable) n -> n.iValue > 0 ? 1.0 : 0.01;
+    public static Function<Neiron, Double> RELU_DERIVATIVE = (Function<Neiron, Double> & Serializable) n -> n.iValue > 0 ? 1.0 : 0.01;
     public static Supplier<Double> RELU_INIT_HE(int fanIn) {
         double std = Math.sqrt(2.0 / fanIn);
-        return GENERATE_NORMAL(std);
+        return INIT_NORMAL(std);
     }
 
 
@@ -66,6 +115,7 @@ public class Net implements Serializable {
         boolean process(double[] outputVec, double[] expectedVec, double acceptableError);
     }
 
+    @Getter
     List<Layer> layers = new ArrayList<>();
 
     /**Конструктор нейросети
@@ -110,7 +160,6 @@ public class Net implements Serializable {
         Ошибка вычисляется на выходном слое.
         Затем она распространяется назад: от выходного слоя к входному.
         Каждый нейрон (кроме входных) имеет дельту (δ), которая показывает, насколько он виноват в ошибке.
-        Веса связей обновляются по правилу: Δw = -η * δ * x, где η - скорость обучения, δ - дельта нейрона, на который ведёт связь, x - выход нейрона, с которого идёт связь.
 
         LayerOutput.backward:
             - вычисляет дельту для каждого нейрона выходного слоя.
@@ -132,38 +181,32 @@ public class Net implements Serializable {
     }
 
     /**Тренировка на наборе данных
-     * @param inputs - набор входных векторов
-     * @param targets - набор целевых векторов
-     * @param lr - коэффициент обучения
-     * @param maxEpochCount - максимальное количество эпох обучения
-     * @param countCalcTest - после проведения какого кол-ва подходов будет запускаться тестирование для получениия оценки (-1 чтобы не запускать вообще)
-     * @param teatParam - параметры для теста
+     * @param dto - дто с даным для запуска обучения
+     * @param testDto -тестовое дто для запуска тестов
      * @param testValueStop - значение при превышении которого останавливаем обучение*/
-    public void trains(double[][] inputs, double[][] targets, double lr, int maxEpochCount, int countCalcTest, TestWrapper teatParam, double testValueStop){
-        if(inputs.length!=targets.length) throw new RuntimeException("Несовпадение размерности");
-
+    public void trains(TrainDto dto, TestDto testDto, double testValueStop){
         int epoch=0; //текущая эпоха
-        int countCalcTestTmp = countCalcTest;
+        int countCalcTestTmp = dto.countCalcTest;
         double testValue=0F;
 
         Instant start = Instant.now();
-        while (epoch++<maxEpochCount && testValue < testValueStop){
+        while (epoch++<dto.maxEpochCount && testValue < testValueStop){
             Instant startEpoch = Instant.now();
-            for (int i = 0; i < targets.length; i++) {
-                if (i > 0 && i % 5000 == 0) System.out.println("processed " + i + " from " + targets.length);
+            for (int i = 0; i < dto.dataSize; i++) {
+                if (i > 0 && i % 5000 == 0) System.out.println("processed " + i + " from " + dto.dataSize);
 
                 //единичная тренировка
-                forward(inputs[i], true);
-                backward(targets[i], lr);
+                forward(dto.fInput.apply(i), true);
+                backward(dto.fTarget.apply(i), dto.lr);
 
                 //countCalcTestTmp
                 if (countCalcTestTmp>=0) {
                     if (countCalcTestTmp-- == 0) {
-                        testValue = tests(teatParam);
+                        testValue = tests(testDto);
                         if (testValue>=testValueStop)
                             break;
                         System.out.println("tests = " + String.format("%.3f", testValue));
-                        countCalcTestTmp = countCalcTest;
+                        countCalcTestTmp = dto.countCalcTest;
                     }
                 }
             }
@@ -174,25 +217,38 @@ public class Net implements Serializable {
         System.out.println("all duration(ms)=" + Duration.between(start, Instant.now()).toMillis());
 
         if (testValue<testValueStop)
-            testValue = tests(teatParam);
+            testValue = tests(testDto);
         System.out.println("end tests = " + String.format("%.3f", testValue));
     }
+    /**ДТО для запуска тренировки сети
+     *      * @param fInput - функция получения входного вектора по номеру
+     *      * @param fTarget - функция получения целевого вектора по номеру
+     *      * @param dataSize - длина набора данных
+     *      * @param lr - коэффициент обучения
+     *      * @param maxEpochCount - максимальное количество эпох обучения
+     *      * @param countCalcTest - после проведения какого кол-ва подходов будет запускаться тестирование для получениия оценки (-1 чтобы не запускать вообще)*/
+    public static record TrainDto(Function<Integer, double[]> fInput, Function<Integer, double[]> fTarget, int dataSize, double lr, int maxEpochCount, int countCalcTest){}
 
     /**Запуск тестов
-     * @param testParam - параметры запуска тестов
+     * @param dto - дто для запуска тестов
      * @return - процент успешно пройдённых тестов*/
-    public double tests(TestWrapper testParam){
-        if (testParam.inputs.length != testParam.targets.length) throw new RuntimeException("Несоответствие размерности!");
-
+    public double tests(TestDto dto){
         int success=0;
-        for(int i=0; i< testParam.inputs.length; i++){
-            double[] actual = forward(testParam.inputs[i], false);
-            if (testParam.estimation.process(actual, testParam.targets[i], testParam.acceptableError))
+        for(int i=0; i< dto.dataSize; i++){
+            double[] actual = forward(dto.fInput.apply(i), false);
+            if (dto.estimation.process(actual,dto.fTarget.apply(i), dto.acceptableError))
                 success++;
         }
 
-        return (double) success / testParam.inputs.length;
+        return (double) success / dto.dataSize;
     }
+    /**ДТО для запуска тестов
+     *      * @param fInput - функция получения входного вектора по номеру
+     *      * @param fTarget - функция получения целевого вектора по номеру
+     *      * @param dataSize - длина набора данных
+     *      * @param estimation - функция вычисляющая можно ли считать данный ответ правильным или нет
+     *      * @param acceptableError - допустимая ошибка при которой ответ считается правильным*/
+    public static record TestDto(Function<Integer, double[]> fInput, Function<Integer, double[]> fTarget, int dataSize, Estimation estimation, double acceptableError){ }
 
     /**
      * Сохранить обученную нейросеть в файл по его пути
@@ -251,10 +307,20 @@ public class Net implements Serializable {
         return imax;
     }
 
+    /**По номеру слова создаёт массив входных данных */
+    public static double[] generateVec(int number, int size, double min, double max){
+        double[] voc = new double[size];
+        Arrays.fill(voc, min);
+        voc[number] = max;
+        return voc;
+    }
+
+    /**Функция эстимации (можно ли считать данный ответ нейросети правильным). По максимальному значению*/
     public static Net.Estimation estimationMax = (double[] outputVec, double[] expectedVec, double acceptableError) ->{
         return findMax(outputVec).equals(findMax(expectedVec));
     };
 
+    /**Функция эстимации (можно ли считать данный ответ нейросети правильным). Функция потерь*/
     public static Net.Estimation estimationLoss = (double[] outputVec, double[] expectedVec, double acceptableError) ->{
         double loss=0;
         for(int i=0; i<outputVec.length;i++)
@@ -262,17 +328,383 @@ public class Net implements Serializable {
         return loss < acceptableError;
     };
 
-    /**Враппер для тестовых параметров
-     *      * @param inputs - набор входных векторов
-     *      * @param targets - набор целевых векторов
-     *      * @param estimation - функция проверки результатов тестирования
-     *      * @param acceptableError - допустимая ошибка при которой ответ считается верным
-     *      */
-    @AllArgsConstructor
-    public static class TestWrapper{
-        double[][] inputs;
-        double[][] targets;
-        Estimation estimation;
-        double acceptableError;
+    //------------------LINK
+    /**Связь между нейронами*/
+    @FieldDefaults(level = AccessLevel.PUBLIC)
+    public static class Link implements Serializable{
+        double weight = 0F; //вес связи
+        Neiron iNeiron;
+        Neiron oNeiron;
+
+        /**Создать связь между нейронами
+         * @param iNeiron - входной нейрон
+         * @param oNeiron - выходной нейрон
+         * @param initWeightFun - функция инициализации весов
+         * @return - созданная связь*/
+        public static Link createLink(Neiron iNeiron, Neiron oNeiron, Supplier<Double> initWeightFun){
+            Link link = new Link();
+            link.weight = initWeightFun.get();
+            link.iNeiron = iNeiron;
+            link.oNeiron = oNeiron;
+
+            iNeiron.oLinks.add(link);
+            oNeiron.iLinks.add(link);
+            return link;
+        }
+
+        public void print(int layerNumber, int neironNumber, int linkNumber){
+            System.out.println("\t\t\tlink "+layerNumber+"_"+neironNumber+" => "+(layerNumber+1)+"_"+linkNumber+" : "+String.format("%.4f", weight));
+        }
+    }
+    
+    //------------------NEIRON
+    /**Нейрон*/
+    @FieldDefaults(level = AccessLevel.PUBLIC)
+    public static class Neiron implements Serializable{
+        double dropoutMask = 1.0; // маска dropout (0 - отключен, 1 - активен)
+
+        double bias = Math.random() * 0.1 - 0.05; //смещение
+        double iValue=0F;//входное значение (взвешенная сумма переданных сигналов от нейронов предыдущего слоя) + смещение
+        double oValue;//выходное значение - то что передаётся от этого нейрона нейрону следующего слоя.
+        double delta; //дельта ошибки
+        List<Link> iLinks = new ArrayList<>();
+        List<Link> oLinks = new ArrayList<>();
+
+        /**Создать нейрон входного слоя*/
+        public static Neiron createInputNeiron(){Neiron n = new Neiron();n.iLinks=null;return n;}
+        /**Создать нейрон промежуточного слоя*/
+        public static Neiron createMediumNeiron(){return new Neiron();}
+        /**Создать нейрон выходного слоя*/
+        public static Neiron createOutputNeiron(){Neiron n = new Neiron();n.oLinks=null;return n;}
+
+        public void print(int layerNumber, int neironNumber){
+            System.out.println("\t\tneiron "+layerNumber+"_"+neironNumber+" ("+"b="+String.format("%.4f", bias)+", delta="+String.format("%.4f",delta)+", iValue="+String.format("%.4f",iValue)+", oValue="+String.format("%.4f",oValue)+")");
+            if(oLinks==null) return;
+            for(int i=0; i<oLinks.size(); i++)
+                oLinks.get(i).print(layerNumber, neironNumber, i);
+        }
+    }
+    
+    //------------------LAYER
+    /**Абстрактный класс слоя*/
+    public abstract static class Layer implements Serializable{
+        final public List<Neiron> neirons = new ArrayList<>();
+
+        /**Вывести на печать*/
+        public void print(int layerNumber){
+            System.out.println("\tLayer number "+layerNumber);
+            for(int i=0; i<neirons.size(); i++)
+                neirons.get(i).print(layerNumber, i);
+
+        }
+    }
+
+    /**Входной слой*/
+    public static class LayerInput extends Layer {
+        double dropoutRate = 0.0; // процент дропаута (0.0 - нет дропаута, 0.5 - 50%)
+
+        /**Конструктор входного слоя
+         * @param nCount - количество нейронов в входном слою
+         * @param dropoutRate - процент дропаута (от 0.0 до 0.99)
+         * @return - входной слой*/
+        public LayerInput(int nCount, double dropoutRate){
+            this.dropoutRate = dropoutRate;
+
+            for(int i =0; i<nCount; i++)
+                this.neirons.add(Neiron.createInputNeiron());
+        }
+
+        /**Прямой проход для нейронов слоя (вычисление)
+         * @param inputs - вектор входных данных
+         * @param trainingMode - если истина, то режим обучения, иначе режим работы*/
+        public void forward(double[] inputs, boolean trainingMode){
+            assert (inputs.length!=neirons.size()) : "Несовпадение размерности";
+
+            for(int i=0; i<inputs.length; i++) {
+                neirons.get(i).oValue = inputs[i];
+                if (trainingMode && dropoutRate>0)
+                    if (Math.random() < dropoutRate)
+                        neirons.get(i).oValue = Math.random();
+
+            }
+        }
+
+        /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения*/
+        public void backward(){
+            // Ничего не делаем так как исходящие из входного слоя связи уже обновлены первым промежуточным слоем, а дельты вычислять не надо так как входящих связей нет
+        }
+    }
+
+    /**Промежуточный слой*/
+    @FieldDefaults(level = AccessLevel.PROTECTED)
+    public static class LayerMedium extends Layer {
+        UnaryOperator<Double> activation; //функция активации
+        Function<Neiron, Double> activationDer; //производная функции активации
+
+        private double dropoutRate = 0.0; // процент дропаута (0.0 - нет дропаута, 0.5 - 50%)
+
+        /**Конструктор промежуточного слоя
+         * @param nCount - количество нейронов в слое
+         * @param prevoisLayer - предыдущий слой
+         * @param activation - фун активации
+         * @param activationDer - производная фун активации
+         * @param initWeightFun - функция инициализации весов
+         * @param dropoutRate - процент дропаута (от 0.0 до 0.99)
+         * @return - промежуточный слой*/
+        public LayerMedium (int nCount, Layer prevoisLayer, UnaryOperator<Double> activation, Function<Neiron, Double> activationDer, Supplier<Double> initWeightFun, double dropoutRate){
+            this.activation =activation;
+            this.activationDer =activationDer;
+            this.dropoutRate = dropoutRate;
+
+            for(int i =0; i<nCount; i++) {
+                Neiron neiron = Neiron.createMediumNeiron();
+                this.neirons.add(neiron);
+
+                for(Neiron prevNeiron :  prevoisLayer.neirons)
+                    Link.createLink(prevNeiron, neiron, initWeightFun);
+            }
+
+        }
+
+
+        /**Прямой проход для нейронов слоя (вычисление)
+         * @param trainingMode - если истина, то режим обучения, иначе режим работы*/
+        public void forward(boolean trainingMode){
+            for(Neiron n : neirons) {
+                if (trainingMode && dropoutRate > 0.0) {
+                    if (Math.random() < dropoutRate) {
+                        n.dropoutMask = 0.0; // нейрон отключен
+                        n.iValue = 0.0;
+                        n.oValue = 0.0;
+                        continue;
+                    }
+                    else
+                        n.dropoutMask = 1.0; // нейрон активен
+                }else
+                    n.dropoutMask = 1.0; // вне режима тренировки нейрон всегда активен
+
+
+                n.iValue=n.bias;
+                for (Link link : n.iLinks)
+                    n.iValue  += link.iNeiron.oValue * link.weight;
+                n.oValue=this.activation.apply(n.iValue);
+
+                // Для inverted dropout: масштабируем только при обучении
+                if (trainingMode && dropoutRate > 0.0 && n.dropoutMask == 1.0) {
+                    n.oValue *= 1.0 / (1.0 - dropoutRate); // inverted dropout
+                }
+            }
+        }
+
+        /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
+         * @param lr - коэффициент обучения
+         * @param trainingMode - если истина, то режим обучения, иначе режим работы*/
+        public void backward(double lr, boolean trainingMode){
+            for (Neiron neiron : neirons) {
+                // Учитываем маску дропаута при вычислении градиента
+                if (neiron.dropoutMask == 0.0) {
+                    neiron.delta = 0.0; // отключенные нейроны не участвуют в обучении
+                    continue;
+                }
+
+                //Вычислим дельту ошибки чтобы в предыдущем слоя можно было обновить веса исходящих из него (то есть входящих для нейронов данного слоя) связей
+                //для всех нейронов данного слоя обновим веса исходящих связей на основе переданного нейроном значения, веса связи и дельты ошибки нейрона-получателя данной связи
+
+                double delta = 0F;
+                for (Link outLink : neiron.oLinks)
+                    delta += outLink.oNeiron.delta * outLink.weight;
+                neiron.delta = activationDer.apply(neiron) * delta;
+
+                neiron.bias -= neiron.delta*lr;//вычисление изменения смещения текущего нейрона
+
+                //корректируем веса входящих связей для нейрона
+                for (Link inLink : neiron.iLinks) {
+                    double grad = inLink.iNeiron.oValue * neiron.delta;
+                    inLink.weight -= lr * grad;
+                }
+            }
+        }
+
+        /**Промежуточный слой - сигмоида*/
+        public static class LayerMediumSigmoid extends LayerMedium {
+            public LayerMediumSigmoid(Layer prevoisLayer, int nCount, double dropoutRate){
+                super(nCount, prevoisLayer, Net.SIGMOID, Net.SIGMOID_DERIVATIVE, Net.SIGMOID_INIT_XAVIER(prevoisLayer.neirons.size(), nCount), dropoutRate);
+            }
+        }
+        /**Промежуточный слой - тангес*/
+        public static class LayerMediumTanh extends LayerMedium {
+            public LayerMediumTanh(Layer prevoisLayer, int nCount, double dropoutRate){
+                super(nCount, prevoisLayer, Net.TANH, Net.TANH_DERIVATIVE, Net.TANH_INIT_XAVIER(prevoisLayer.neirons.size(), nCount), dropoutRate);
+            }
+        }
+        /**Промежуточный слой - релу*/
+        public static class LayerMediumRelu extends LayerMedium {
+            public LayerMediumRelu(Layer prevoisLayer, int nCount, double dropoutRate){
+                super(nCount, prevoisLayer, Net.RELU, Net.RELU_DERIVATIVE, Net.RELU_INIT_HE(prevoisLayer.neirons.size()), dropoutRate);
+            }
+        }
+    }
+
+    /**Выходной слой*/
+    public static class LayerOutput extends Layer {
+        UnaryOperator<Double> activation; //функция активации
+        Function<Neiron, Double> activationDer; //производная функции активации
+
+
+        /**Конструктор выходного слоя
+         * @param nCount - количество нейронов в слое
+         * @param prevoisLayer - предыдущий слой
+         * @param activation - фун активации
+         * @param activationDer - производная фун активации
+         * @param initWeightFun - функция инициализации весов
+         * @return - выходной слой*/
+        public LayerOutput(int nCount, Layer prevoisLayer, UnaryOperator<Double> activation, Function<Neiron, Double> activationDer, Supplier<Double> initWeightFun){
+            this.activation =activation;
+            this.activationDer =activationDer;
+
+            for(int i =0; i<nCount; i++) {
+                Neiron neiron = Neiron.createOutputNeiron();
+                this.neirons.add(neiron);
+
+                for(Neiron prevNeiron :  prevoisLayer.neirons)
+                    Link.createLink(prevNeiron, neiron, initWeightFun);
+            }
+        }
+
+        /**Прямой проход для нейронов слоя (вычисление)
+         * @return - вектор выходных данных*/
+        public double[] forward(){
+            double[] outputs = new double[neirons.size()];
+
+            for(int i=0; i<neirons.size(); i++) {
+                Neiron n = neirons.get(i);
+
+                n.iValue=n.bias;
+                for (Link link : n.iLinks)
+                    n.iValue  += link.iNeiron.oValue * link.weight;
+                n.oValue=this.activation.apply(n.iValue);
+                outputs[i]=n.oValue;
+            }
+
+            return outputs;
+        }
+
+        /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
+         * @param targets - вектор целевых значений выходных нейронов
+         * @param lr - коэффициент обучения
+         * */
+        public void backward(double[] targets, double lr){
+            assert targets.length!=neirons.size() : "Несовпадение размерности";
+
+            //Вычислим дельту ошибки нейронов выходного слоя
+            for(int i=0; i<targets.length; i++){
+                Neiron neiron = neirons.get(i);
+
+                //дельта ошибки на выходе нейрона = производная функции потерь * производная функции активации
+                calcDelta(neiron, targets[i]);
+
+                //вычисляем изменение смещения
+                neiron.bias -=neiron.delta*lr;
+
+                //корректируем веса входящих связей для нейрона
+                for (Link inLink : neiron.iLinks) {
+                    double grad = inLink.iNeiron.oValue * neiron.delta;
+                    inLink.weight -=lr * grad;
+                }
+            }
+        }
+
+        /**Вычисление дельты выходного нейрона*/
+        protected void calcDelta(Neiron neiron, double targets) {
+            //дельта ошибки на выходе нейрона = производная функции потерь * производная функции активации
+            //для  MSE  loss = (target - output)^2 производная по output: 2*(output - target) (но обычно берут (output - target)
+            neiron.delta=(neiron.oValue - targets) * activationDer.apply(neiron);
+        }
+
+        /**Выходной слой - сигмоида*/
+        public static class LayerOutputSigmoid extends LayerOutput {
+            public LayerOutputSigmoid(Layer prevoisLayer, int nCount){
+                super(nCount, prevoisLayer, Net.SIGMOID, Net.SIGMOID_DERIVATIVE, Net.SIGMOID_INIT_XAVIER(prevoisLayer.neirons.size(), nCount));
+            }
+        }
+        /**Выходной слой - тангес*/
+        public static class LayerOutputTanh extends LayerOutput {
+            public LayerOutputTanh(Layer prevoisLayer, int nCount){
+                super(nCount, prevoisLayer, Net.TANH, Net.TANH_DERIVATIVE, Net.TANH_INIT_XAVIER(prevoisLayer.neirons.size(), nCount));
+            }
+        }
+        /**Выходной слой - релу*/
+        public static class LayerOutputRelu extends LayerOutput {
+            public LayerOutputRelu(Layer prevoisLayer, int nCount){
+                super(nCount, prevoisLayer, Net.RELU, Net.RELU_DERIVATIVE, Net.RELU_INIT_HE(prevoisLayer.neirons.size()));
+            }
+        }
+
+        /**
+         * Выходной слой с softmax и кросс-энтропией.
+         * Предполагается, что целевой вектор имеет one-hot кодирование (то есть там только одна единичка, остальное 0)
+         */
+        public static class LayerOutputSoftmaxAndCrossEntity extends LayerOutput {
+
+            /**
+             * Конструктор выходного softmax-слоя.
+             * @param previousLayer предыдущий слой
+             * @param nCount количество нейронов в слое (число классов)
+             */
+            public LayerOutputSoftmaxAndCrossEntity(Layer previousLayer, int nCount) {
+                // Передаём фиктивные функции активации и производной,
+                // они не будут использоваться, так как forward и calcDelta переопределены.
+                // Инициализация весов — Xavier (подходит для softmax).
+                super(nCount, previousLayer,
+                        x -> x,                 // фиктивная активация
+                        n -> 1.0,               // фиктивная производная
+                        SIGMOID_INIT_XAVIER(previousLayer.neirons.size(), nCount) // Xavier
+                );
+            }
+
+            @Override
+            public double[] forward() {
+                int n = neirons.size();
+                double[] iValues = new double[n];
+
+                // 1. Вычисляем взвешенные суммы (Z = W·X + b) для всех нейронов
+                for (int i = 0; i < n; i++) {
+                    Neiron neiron = neirons.get(i);
+                    double sum = neiron.bias;
+                    for (Link link : neiron.iLinks) {
+                        sum += link.iNeiron.oValue * link.weight;
+                    }
+                    neiron.iValue = sum;  // сохраняем для возможного использования
+                    iValues[i] = sum;
+                }
+
+                // 2. Применяем softmax с численной стабилизацией (вычитание максимума)
+                double max = Double.NEGATIVE_INFINITY;
+                for (double v : iValues) {
+                    if (v > max) max = v;
+                }
+
+                double sumExp = 0.0;
+                double[] expVals = new double[n];
+                for (int i = 0; i < n; i++) {
+                    expVals[i] = Math.exp(iValues[i] - max);
+                    sumExp += expVals[i];
+                }
+
+                double[] outputs = new double[n];
+                for (int i = 0; i < n; i++) {
+                    double softmaxOut = expVals[i] / sumExp;
+                    neirons.get(i).oValue = softmaxOut;
+                    outputs[i] = softmaxOut;
+                }
+                return outputs;
+            }
+
+            @Override
+            protected void calcDelta(Neiron neiron, double target) {
+                // Для комбинации softmax + кросс-энтропия дельта равна (output - target) но только если целевой вектор это one-hot вектор
+                neiron.delta = neiron.oValue - target;
+            }
+        }
     }
 }
