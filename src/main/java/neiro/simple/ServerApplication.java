@@ -18,8 +18,7 @@ public class ServerApplication {
 		//SpringApplication.run(ServerApplication.class, args);
 
 		//ExampleMLP.xor();
-		ExampleMLP.mnist();
-		//ExampleMLP.mnistEasy();
+		//ExampleMLP.mnist();
 
 		/*	Set<String> set = TextUtils.processText("d:\\Work\\Project\\neiro\\txt");
 		TextUtils.saveVocabularyToFile(set, "d:\\Work\\Project\\neiro\\worlds.file");
