@@ -2,11 +2,13 @@ package neiro.simple.mlp;
 
 import lombok.SneakyThrows;
 
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static neiro.simple.mlp.Net.estimationLoss;
 import static neiro.simple.mlp.Net.estimationMax;
@@ -32,6 +34,7 @@ public class ExampleMLP {
                 (layer) -> new Net.LayerOutput.LayerOutputRelu(layer, 1)
         ));*/
 
+
         Net.save("net1.save", net);
         net = Net.load("net1.save");
         net.print();
@@ -54,9 +57,10 @@ public class ExampleMLP {
                         (Integer i) -> inputs[i],
                         (Integer i) -> targets[i],
                         inputs.length,
-                        0.2,
                         5000,
-                        100
+                        100,
+                        //(Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.2)
+                        (Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001)
                 ),
                 new Net.TestDto(
                         (Integer i) -> inputs[i],
@@ -93,12 +97,12 @@ public class ExampleMLP {
                 (layer) -> new Net.LayerInput(784, 0.0),
                 (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
                 (layer) -> new Net.LayerOutput.LayerOutputSigmoid(layer, 10)
-        )); коэф 0.2*/
+        ));*/
         Net net = new Net(List.of(
                 (layer) -> new Net.LayerInput(784, 0.0),
                 (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
                 (layer) -> new Net.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 10)
-        )); //коэф об 0,02
+        ));
 
         double[][] inputs = datasTrain.toArray(double[][]::new);
         double[][] targets = targetsTrain.toArray(double[][]::new);
@@ -111,15 +115,62 @@ public class ExampleMLP {
                         (Integer i) -> inputs[i],
                         (Integer i) -> targets[i],
                         inputs.length,
-                        0.02,
                         1,
-                        -1
+                        -1,
+                        //(Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.2)
+                        (Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001)
                 ),
                 new Net.TestDto(
                         (Integer i) -> inputsTest[i],
                         (Integer i) -> targetTest[i],
                         inputsTest.length,
-                        estimationMax,
+                        Net.estimationMax,
+                        0.01
+                ),
+                0.98
+        );
+    }
+
+    /**
+     * Задача распозновазния рукописных шрифтов mnist
+     */
+    public static void mnistEasy() {
+        //MNIST
+        List<double[]> datasTrain = new ArrayList<>();
+        List<double[]> targetsTrain = new ArrayList<>();
+        List<double[]> datasTest = new ArrayList<>();
+        List<double[]> targetsTest = new ArrayList<>();
+
+        prepareDataForMnist(targetsTrain, datasTrain, "d:\\Work\\Project\\0files\\mnist\\mnist_train.csv");
+        prepareDataForMnist(targetsTest, datasTest, "d:\\Work\\Project\\0files\\mnist\\mnist_test.csv");
+
+        NetEasy net = new NetEasy(List.of(
+                (layer) -> new NetEasy.LayerInput(784),
+                (layer) -> new NetEasy.LayerMedium.LayerMediumTanh(layer, 100),
+                (layer) -> new NetEasy.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 10)
+        )
+        );
+
+        double[][] inputs = datasTrain.toArray(double[][]::new);
+        double[][] targets = targetsTrain.toArray(double[][]::new);
+
+        double[][] inputsTest = datasTest.toArray(double[][]::new);
+        double[][] targetTest = targetsTest.toArray(double[][]::new);
+
+        net.trains(
+                new NetEasy.TrainDto(
+                        (Integer i) -> inputs[i],
+                        (Integer i) -> targets[i],
+                        inputs.length,
+                        0.2,
+                        1,
+                        -1
+                ),
+                new NetEasy.TestDto(
+                        (Integer i) -> inputsTest[i],
+                        (Integer i) -> targetTest[i],
+                        inputsTest.length,
+                        NetEasy.estimationMax,
                         0.01
                 ),
                 0.98

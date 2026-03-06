@@ -19,6 +19,7 @@ public class ServerApplication {
 
 		//ExampleMLP.xor();
 		ExampleMLP.mnist();
+		//ExampleMLP.mnistEasy();
 
 		/*	Set<String> set = TextUtils.processText("d:\\Work\\Project\\neiro\\txt");
 		TextUtils.saveVocabularyToFile(set, "d:\\Work\\Project\\neiro\\worlds.file");
