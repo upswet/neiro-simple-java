@@ -59,8 +59,9 @@ public class ExampleMLP {
                         inputs.length,
                         5000,
                         100,
-                        (Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.2)
-                        //(Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001)
+                        (Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.2),
+                        //(Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001),
+                        -1
                 ),
                 new Net.TestDto(
                         (Integer i) -> inputs[i],
@@ -117,8 +118,9 @@ public class ExampleMLP {
                         inputs.length,
                         1,
                         -1,
-                        (Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.02)
-                        //(Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001)
+                        //(Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.02),
+                        (Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001),
+                        100
                 ),
                 new Net.TestDto(
                         (Integer i) -> inputsTest[i],

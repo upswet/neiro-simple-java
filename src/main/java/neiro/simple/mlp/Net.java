@@ -77,7 +77,7 @@ public class Net implements Serializable {
     public static UnaryOperator<Double> SIGMOID = (UnaryOperator<Double> & Serializable)x -> 1.0 / (1 + Math.exp(-x));
     public static Function<Neiron, Double> SIGMOID_DERIVATIVE =  ( Function<Neiron, Double> & Serializable) n -> (
             //SIGMOID.apply(n.iValue) * (1 - SIGMOID.apply(n.iValue)) /// классический вариант
-            n.oValue * (1 - n.oValue) // ускоренный вариант
+            n.oValueRaw * (1 - n.oValueRaw) // ускоренный вариант
     );
     public static Supplier<Double> SIGMOID_INIT_XAVIER (int fanIn, int fanOut) {
         double std = Math.sqrt(2.0 / (fanIn + fanOut));
@@ -86,7 +86,7 @@ public class Net implements Serializable {
 
     //тангес
     public static UnaryOperator<Double> TANH = (UnaryOperator<Double> & Serializable) x -> Math.tanh(x);
-    public static Function<Neiron, Double> TANH_DERIVATIVE = (Function<Neiron, Double> & Serializable) n -> 1.0 - n.oValue * n.oValue; // производная tanh: 1 - tanh²(x)
+    public static Function<Neiron, Double> TANH_DERIVATIVE = (Function<Neiron, Double> & Serializable) n -> 1.0 - n.oValueRaw * n.oValueRaw; // производная tanh: 1 - tanh²(x)
     public static Supplier<Double> TANH_INIT_XAVIER(int fanIn, int fanOut) {
         double std = 2.0/(fanIn + fanOut);// Инициализация Xavier/Glorot для tanh
         return INIT_NORMAL(std);
@@ -156,8 +156,12 @@ public class Net implements Serializable {
      * @param targets - вектор целевых значений выходных нейронов
      * @param param - гиперпараметры оптимизатора
      * @param optimizator - сам оптимизатор
+     * @param batchCurrentSize - остаток от текущей пачки.
+     * @param batchMaxSize - максимальный размер пачки
+     * @param isEnd - если истина то это последний прогон в эпохе
+     * @return - текущее значение batchCurrentSize
      * */
-    private void backward(double[] targets, ParamOptimizator param, Optimizator optimizator){
+    private int backward(double[] targets, ParamOptimizator param, Optimizator optimizator, int batchCurrentSize, int batchMaxSize, boolean isEnd){
         /*
         Ошибка вычисляется на выходном слое.
         Затем она распространяется назад: от выходного слоя к входному.
@@ -173,13 +177,22 @@ public class Net implements Serializable {
             - Входной слой не имеет входящих связей, а его исходящие связи (oLinks) уже обновлены на предыдущем шаге. Ничего не делаем
         */
 
-        ((LayerOutput)layers.getLast()).backward(targets, optimizator, param.stepCount);
+        if (batchCurrentSize == batchMaxSize)
+            isEnd = true;
+
+        ((LayerOutput)layers.getLast()).backward(targets, optimizator, param.stepCount, batchMaxSize == -1 ? -1 : batchCurrentSize, isEnd);
 
         for (int i=layers.size()-2; i>0; i--)
-            ((LayerMedium)layers.get(i)).backward(optimizator);
+            ((LayerMedium)layers.get(i)).backward(optimizator, batchMaxSize == -1 ? -1 : batchCurrentSize, isEnd);
 
         // Ничего не делаем так как исходящие из входного слоя связи уже обновлены первым промежуточным слоем, а дельты вычислять не надо так как входящих связей нет
         // ((LayerInput)layers.getFirst()).backward();
+
+        if (isEnd) {
+            param.nextStep();//следующий шаг отпимизатора только после обновления весов
+            return 0;
+        }
+        else return batchCurrentSize+1;
     }
 
     /**Тренировка на наборе данных
@@ -194,12 +207,16 @@ public class Net implements Serializable {
         for(Layer layer : layers){
             for(Neiron neiron : layer.neirons){
                 neiron.dataOptimizator = optimizator.createData();
+                neiron.gradAccumBias = 0.0;
                 if ( neiron.iLinks != null)
-                    for(Link link : neiron.iLinks)
+                    for(Link link : neiron.iLinks) {
                         link.dataOptimizator = optimizator.createData();
+                        link.gradAccumWeight = 0.0;
+                    }
             }
         }
         param.reset();
+        int batchSizeConst = dto.batchSizeConst;
 
         int epoch=0; //текущая эпоха
         int countCalcTestTmp = dto.countCalcTest;
@@ -208,13 +225,13 @@ public class Net implements Serializable {
         Instant start = Instant.now();
         while (epoch++<dto.maxEpochCount && testValue < testValueStop){
             Instant startEpoch = Instant.now();
+            int batchCurrentSize = 0;
             for (int i = 0; i < dto.dataSize; i++) {
                 if (i > 0 && i % 5000 == 0) System.out.println("processed " + i + " from " + dto.dataSize);
 
                 //единичная тренировка
                 forward(dto.fInput.apply(i), true);
-                backward(dto.fTarget.apply(i), param, optimizator);
-                param.nextStep();
+                batchCurrentSize = backward(dto.fTarget.apply(i), param, optimizator, batchCurrentSize, batchSizeConst, batchSizeConst == -1 || i == dto.dataSize - 1);
 
                 //countCalcTestTmp
                 if (countCalcTestTmp>=0) {
@@ -238,13 +255,15 @@ public class Net implements Serializable {
         System.out.println("end tests = " + String.format("%.3f", testValue));
     }
     /**ДТО для запуска тренировки сети
-     *      * @param fInput - функция получения входного вектора по номеру
-     *      * @param fTarget - функция получения целевого вектора по номеру
-     *      * @param dataSize - длина набора данных
-     *      * @param maxEpochCount - максимальное количество эпох обучения
-     *      * @param countCalcTest - после проведения какого кол-ва подходов будет запускаться тестирование для получениия оценки (-1 чтобы не запускать вообще)
-     *      * @param paramOptimizatorSupplier - функция создающая гиперпараметры для оптимизатора*/
-    public static record TrainDto(Function<Integer, double[]> fInput, Function<Integer, double[]> fTarget, int dataSize, int maxEpochCount, int countCalcTest, Supplier<ParamOptimizator> paramOptimizatorSupplier){}
+     * @param fInput - функция получения входного вектора по номеру
+     * @param fTarget - функция получения целевого вектора по номеру
+     * @param dataSize - длина набора данных
+     * @param maxEpochCount - максимальное количество эпох обучения
+     * @param countCalcTest - после проведения какого кол-ва подходов будет запускаться тестирование для получениия оценки (-1 чтобы не запускать вообще)
+     * @param paramOptimizatorSupplier - функция создающая гиперпараметры для оптимизатора
+     * @param batchSizeConst - размер пачки. Использовать -1 если работаем без пачки
+     */
+    public static record TrainDto(Function<Integer, double[]> fInput, Function<Integer, double[]> fTarget, int dataSize, int maxEpochCount, int countCalcTest, Supplier<ParamOptimizator> paramOptimizatorSupplier, int batchSizeConst){}
 
     /**Запуск тестов
      * @param dto - дто для запуска тестов
@@ -408,7 +427,7 @@ public class Net implements Serializable {
     }
     //гиперпараметры для оптимизатора
     public static abstract class ParamOptimizator implements Serializable{
-        public int stepCount = 1; // счётчик шагов (обновляется при каждом backward)
+        public int stepCount = 1; // счётчик шагов (обновляется при каждом изменении весов в backward)
 
         public abstract Optimizator createOptimizator();
         public void nextStep(){stepCount++;}
@@ -459,6 +478,8 @@ public class Net implements Serializable {
     @FieldDefaults(level = AccessLevel.PUBLIC)
     public static class Link implements Serializable, GetDataForOptimizatorInterface{
         double weight = 0F; //вес связи
+        public double gradAccumWeight = 0.0;      // сумма градиентов за батч
+
         Neiron iNeiron;
         Neiron oNeiron;
 
@@ -496,8 +517,11 @@ public class Net implements Serializable {
         double dropoutMask = 1.0; // маска dropout (0 - отключен, 1 - активен)
 
         double bias = Math.random() * 0.1 - 0.05; //смещение
+        public double gradAccumBias = 0.0; // сумма градиентов для смещения
+
         double iValue=0F;//входное значение (взвешенная сумма переданных сигналов от нейронов предыдущего слоя) + смещение
         double oValue;//выходное значение - то что передаётся от этого нейрона нейрону следующего слоя.
+        double oValueRaw;//сырое выходное значение (без изменений в связи с дроп-аутом) только для промежуточных слоёв
         double delta; //дельта ошибки
         List<Link> iLinks = new ArrayList<>();
         List<Link> oLinks = new ArrayList<>();
@@ -560,6 +584,7 @@ public class Net implements Serializable {
 
             for(int i=0; i<inputs.length; i++) {
                 neirons.get(i).oValue = inputs[i];
+                neirons.get(i).oValueRaw = neirons.get(i).oValue;
                 if (trainingMode && dropoutRate>0)
                     if (Math.random() < dropoutRate)
                         neirons.get(i).oValue = 0.0;
@@ -626,6 +651,7 @@ public class Net implements Serializable {
                     n.iValue  += link.iNeiron.oValue * link.weight;
                 n.oValue=this.activation.apply(n.iValue);
 
+                n.oValueRaw = n.oValue;
                 // Для inverted dropout: масштабируем только при обучении
                 if (trainingMode && dropoutRate > 0.0 && n.dropoutMask == 1.0) {
                     n.oValue *= 1.0 / (1.0 - dropoutRate); // inverted dropout
@@ -634,8 +660,11 @@ public class Net implements Serializable {
         }
 
         /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
-         * @param optimizator - оптимизатор*/
-        public void backward(Optimizator optimizator){
+         * @param optimizator - оптимизатор
+         * @param batchSize - размер пачки. Если -1 то без пакетного режима
+         * @param weightCorrectFlg - флаг того надо ли корректировать веса
+         * */
+        public void backward(Optimizator optimizator, int batchSize, boolean weightCorrectFlg){
             for (Neiron neiron : neirons) {
                 // Учитываем маску дропаута при вычислении градиента
                 if (neiron.dropoutMask == 0.0) {
@@ -651,13 +680,29 @@ public class Net implements Serializable {
                     delta += outLink.oNeiron.delta * outLink.weight;
                 neiron.delta = activationDer.apply(neiron) * delta;
 
-                //neiron.bias -= neiron.delta*lr;//вычисление изменения смещения текущего нейрона
-                neiron.bias = optimizator.update(neiron.bias, neiron, neiron.delta);//производная по bias равна delta (так как bias влияет напрямую на iValue)
+                if (batchSize == -1)
+                    neiron.bias = optimizator.update(neiron.bias, neiron, neiron.delta);//производная по bias равна delta (так как bias влияет напрямую на iValue)
+                else
+                    if (weightCorrectFlg){
+                        neiron.bias = optimizator.update(neiron.bias, neiron, neiron.gradAccumBias / batchSize);
+                        neiron.gradAccumBias = 0.0;
+                    }
+                    else
+                        neiron.gradAccumBias += neiron.delta;
 
                 //корректируем веса входящих связей для нейрона
                 for (Link inLink : neiron.iLinks) {
                     double grad = inLink.iNeiron.oValue * neiron.delta;
-                    inLink.weight = optimizator.update(inLink.weight, inLink, grad);//inLink.weight -= lr * grad;
+
+                    if (batchSize == -1)
+                        inLink.weight = optimizator.update(inLink.weight, inLink, grad);//inLink.weight -= lr * grad;
+                    else
+                    if (weightCorrectFlg){
+                        inLink.weight = optimizator.update(inLink.weight, inLink, inLink.gradAccumWeight / batchSize);
+                        inLink.gradAccumWeight = 0.0;
+                    }
+                    else
+                        inLink.gradAccumWeight += grad;
                 }
             }
         }
@@ -720,6 +765,7 @@ public class Net implements Serializable {
                 for (Link link : n.iLinks)
                     n.iValue  += link.iNeiron.oValue * link.weight;
                 n.oValue=this.activation.apply(n.iValue);
+                n.oValueRaw = n.oValue;
                 outputs[i]=n.oValue;
             }
 
@@ -728,8 +774,10 @@ public class Net implements Serializable {
 
         /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
          * @param targets - вектор целевых значений выходных нейронов
+         * @param batchSize - размер пачки. Если -1 то без пакетного режима
+         * @param weightCorrectFlg - флаг того надо ли корректировать веса
          * @param optimizator - оптимизатор*/
-        public void backward(double[] targets, Optimizator optimizator, int stepCount){
+        public void backward(double[] targets, Optimizator optimizator, int stepCount, int batchSize, boolean weightCorrectFlg){
             assert targets.length!=neirons.size() : "Несовпадение размерности";
 
             //Вычислим дельту ошибки нейронов выходного слоя
@@ -740,12 +788,30 @@ public class Net implements Serializable {
                 calcDelta(neiron, targets[i]);
 
                 //вычисляем изменение смещения
-                neiron.bias=optimizator.update(neiron.bias, neiron, neiron.delta);//neiron.bias -=neiron.delta*lr;
+                if (batchSize == -1)
+                    neiron.bias=optimizator.update(neiron.bias, neiron, neiron.delta);//neiron.bias -=neiron.delta*lr;
+                else
+                    if (weightCorrectFlg){
+                        neiron.bias = optimizator.update(neiron.bias, neiron, neiron.gradAccumBias / batchSize);
+                        neiron.gradAccumBias = 0.0;
+                    }
+                    else
+                        neiron.gradAccumBias += neiron.delta;
+
 
                 //корректируем веса входящих связей для нейрона
                 for (Link inLink : neiron.iLinks) {
                     double grad = inLink.iNeiron.oValue * neiron.delta;
-                    inLink.weight=optimizator.update(inLink.weight, inLink, grad);//inLink.weight -=lr * grad;
+
+                    if (batchSize == -1)
+                        inLink.weight=optimizator.update(inLink.weight, inLink, grad);//inLink.weight -=lr * grad;
+                    else
+                    if (weightCorrectFlg){
+                        inLink.weight = optimizator.update(inLink.weight, inLink, inLink.gradAccumWeight / batchSize);
+                        inLink.gradAccumWeight = 0.0;
+                    }
+                    else
+                        inLink.gradAccumWeight += grad;
                 }
             }
         }
