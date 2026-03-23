@@ -1,6 +1,5 @@
-package neiro.simple.mlp;
+package neiro.simple.mlp.old;
 
-import javafx.util.Pair;
 import lombok.SneakyThrows;
 
 import java.io.Serializable;
@@ -9,8 +8,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Supplier;
 
-import static neiro.simple.mlp.Net.estimationLoss;
-import static neiro.simple.mlp.Net.estimationMax;
+import static neiro.simple.mlp.old.Net1.estimationLoss;
 
 /**
  * Тестируем нашу mlp (полносвязанную) сеть
@@ -21,10 +19,10 @@ public class ExampleMLP {
      */
     public static void xor() {
         //XOR
-        Net net = new Net(List.of(
-                (layer) -> new Net.LayerInput(2, 0.0),
-                (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 3, 0.0),
-                (layer) -> new Net.LayerOutput.LayerOutputTanh(layer,1)
+        Net1 net1 = new Net1(List.of(
+                (layer) -> new Net1.LayerInput(2, 0.0),
+                (layer) -> new Net1.LayerMedium.LayerMediumTanh(layer, 3, 0.0),
+                (layer) -> new Net1.LayerOutput.LayerOutputTanh(layer,1)
         ));
 
         /*Net net = new Net(List.of(
@@ -34,9 +32,9 @@ public class ExampleMLP {
         ));*/
 
 
-        Net.save("net1.save", net);
-        net = Net.load("net1.save");
-        net.print();
+        Net1.save("net1.save", net1);
+        net1 = Net1.load("net1.save");
+        net1.print();
 
         double[][] inputs = new double[][]{
                 new double[]{0F, 0F},
@@ -51,18 +49,18 @@ public class ExampleMLP {
                 new double[]{0F},
         };
 
-        net.trains(
-                new Net.TrainDto(
+        net1.trains(
+                new Net1.TrainDto(
                         (Integer i) -> inputs[i],
                         (Integer i) -> targets[i],
                         inputs.length,
                         5000,
                         100,
-                        (Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.2),
+                        (Supplier<Net1.ParamOptimizator> & Serializable) () -> new Net1.ConstParamOptimizator(0.2),
                         //(Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001),
                         -1
                 ),
-                new Net.TestDto(
+                new Net1.TestDto(
                         (Integer i) -> inputs[i],
                         (Integer i) -> targets[i],
                         inputs.length,
@@ -73,15 +71,15 @@ public class ExampleMLP {
         );
 
 
-        System.out.println("{1,1} = " + Arrays.toString(net.forward((new double[]{1, 1}))));
-        System.out.println("{1,0} = " + Arrays.toString(net.forward((new double[]{1, 0}))));
-        System.out.println("{0,1} = " + Arrays.toString(net.forward((new double[]{0, 1}))));
-        System.out.println("{0,0} = " + Arrays.toString(net.forward((new double[]{0, 0}))));
+        System.out.println("{1,1} = " + Arrays.toString(net1.forward((new double[]{1, 1}))));
+        System.out.println("{1,0} = " + Arrays.toString(net1.forward((new double[]{1, 0}))));
+        System.out.println("{0,1} = " + Arrays.toString(net1.forward((new double[]{0, 1}))));
+        System.out.println("{0,0} = " + Arrays.toString(net1.forward((new double[]{0, 0}))));
     }
 
 
     /**
-     * Задача распозновазния рукописных шрифтов mnist
+     * Задача распознавания рукописных шрифтов mnist
      */
     public static void mnist() {
         //MNIST
@@ -98,10 +96,10 @@ public class ExampleMLP {
                 (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
                 (layer) -> new Net.LayerOutput.LayerOutputSigmoid(layer, 10)
         ));*/
-        Net net = new Net(List.of(
-                (layer) -> new Net.LayerInput(784, 0.0),
-                (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
-                (layer) -> new Net.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 10)
+        Net1 net1 = new Net1(List.of(
+                (layer) -> new Net1.LayerInput(784, 0.0),
+                (layer) -> new Net1.LayerMedium.LayerMediumTanh(layer, 100, 0.0),
+                (layer) -> new Net1.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 10)
         ));
 
         double[][] inputs = datasTrain.toArray(double[][]::new);
@@ -110,22 +108,22 @@ public class ExampleMLP {
         double[][] inputsTest = datasTest.toArray(double[][]::new);
         double[][] targetTest = targetsTest.toArray(double[][]::new);
 
-        net.trains(
-                new Net.TrainDto(
+        net1.trains(
+                new Net1.TrainDto(
                         (Integer i) -> inputs[i],
                         (Integer i) -> targets[i],
                         inputs.length,
                         1,
                         -1,
                         //(Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.02),
-                        (Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001),
+                        (Supplier<Net1.ParamOptimizator> & Serializable) () -> (new Net1.AdamParamOptimizator()).setLr(0.001),
                         100
                 ),
-                new Net.TestDto(
+                new Net1.TestDto(
                         (Integer i) -> inputsTest[i],
                         (Integer i) -> targetTest[i],
                         inputsTest.length,
-                        Net.estimationMax,
+                        Net1.estimationMax,
                         0.01
                 ),
                 0.98
@@ -170,10 +168,10 @@ public class ExampleMLP {
         targetsTest = targetsTrain.subList(0,10);
         targetsTrain = targetsTrain.subList(11, targetsTrain.size());
 
-        Net net = new Net(List.of(
-                (layer) -> new Net.LayerInput(4, 0.0),
-                (layer) -> new Net.LayerMedium.LayerMediumTanh(layer, 10, 0.0),
-                (layer) -> new Net.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 3)
+        Net1 net1 = new Net1(List.of(
+                (layer) -> new Net1.LayerInput(4, 0.0),
+                (layer) -> new Net1.LayerMedium.LayerMediumTanh(layer, 10, 0.0),
+                (layer) -> new Net1.LayerOutput.LayerOutputSoftmaxAndCrossEntity(layer, 3)
         ));
 
         double[][] inputs = datasTrain.toArray(double[][]::new);
@@ -182,22 +180,22 @@ public class ExampleMLP {
         double[][] inputsTest = datasTest.toArray(double[][]::new);
         double[][] targetTest = targetsTest.toArray(double[][]::new);
 
-        net.trains(
-                new Net.TrainDto(
+        net1.trains(
+                new Net1.TrainDto(
                         (Integer i) -> inputs[i],
                         (Integer i) -> targets[i],
                         inputs.length,
                         20,
                         -1,
                         //(Supplier<Net.ParamOptimizator> & Serializable) () -> new Net.ConstParamOptimizator(0.02),
-                        (Supplier<Net.ParamOptimizator> & Serializable) () -> (new Net.AdamParamOptimizator()).setLr(0.001),
+                        (Supplier<Net1.ParamOptimizator> & Serializable) () -> (new Net1.AdamParamOptimizator()).setLr(0.01),
                         10
                 ),
-                new Net.TestDto(
+                new Net1.TestDto(
                         (Integer i) -> inputsTest[i],
                         (Integer i) -> targetTest[i],
                         inputsTest.length,
-                        Net.estimationMax,
+                        Net1.estimationMax,
                         0.01
                 ),
                 0.98
@@ -234,16 +232,18 @@ public class ExampleMLP {
 
     /**Синхронно перемешать списки входных и целевых данных*/
     private static void myShuffle(List<double[]> targets, List<double[]> datas){
-        List<Pair<double[], double[]>> list = new ArrayList<>();
+        record Pair(double[] left, double[] right){};
+
+        List<Pair> list = new ArrayList<>();
         for(int i =0; i<targets.size(); i++)
-            list.add(new Pair<>(targets.get(i), datas.get(i)));
+            list.add(new Pair(targets.get(i), datas.get(i)));
         Collections.shuffle(list);
 
         targets.clear();
         datas.clear();
-        for(Pair<double[], double[]> pair : list){
-            targets.add(pair.getKey());
-            datas.add(pair.getValue());
+        for(Pair pair : list){
+            targets.add(pair.left());
+            datas.add(pair.right());
         }
     }
 }

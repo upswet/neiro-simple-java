@@ -1,7 +1,6 @@
 plugins {
 	java
-	id("org.springframework.boot") version "4.1.0-M1"
-	id("io.spring.dependency-management") version "1.1.7"
+	application
 }
 
 group = "neiro"
@@ -10,7 +9,7 @@ description = "Neiro simple"
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 
@@ -25,13 +24,14 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter")
-	compileOnly("org.projectlombok:lombok")
-	annotationProcessor("org.projectlombok:lombok")
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	compileOnly("org.projectlombok:lombok:1.18.44")
+	annotationProcessor("org.projectlombok:lombok:1.18.44")
+	implementation("ch.qos.logback:logback-classic:1.5.18")
+
+	testCompileOnly("org.projectlombok:lombok:1.18.44")
+	testAnnotationProcessor("org.projectlombok:lombok:1.18.44")
 }
 
-tasks.withType<Test> {
-	useJUnitPlatform()
+application {
+	mainClass.set("neiro.simple.ServerApplication")
 }
