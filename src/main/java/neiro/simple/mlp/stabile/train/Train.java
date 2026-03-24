@@ -71,10 +71,12 @@ public class Train {
         int batchSizeCount = 1; //для пакетного режима обработки. Номер текущего примера в пакете
 
         Instant start = Instant.now();
+        Instant lastStep = Instant.now();
         for(int i=0; i<data.length; i++, printCount--){
             if (printCount==0){
-                log.info("step {} / {}. Duration {}", i, data.length, Duration.between(start, Instant.now()).toMillis());
+                log.info("step {} / {}. step duration {}. all duration {} ", i, data.length, Duration.between(lastStep, Instant.now()).toMillis(), Duration.between(start, Instant.now()).toMillis());
                 printCount = periodStepPrint;
+                lastStep=Instant.now();
             }
 
             if (batchSize == -1)

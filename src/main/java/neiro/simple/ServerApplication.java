@@ -1,5 +1,6 @@
 package neiro.simple;
 
+import neiro.simple.mlp.stabile.AsyncNeirons;
 import neiro.simple.mlp.stabile.dto.Examples;
 import neiro.simple.mlp.stabile.model.Layer;
 import neiro.simple.mlp.stabile.model.Net;
@@ -20,9 +21,11 @@ public class ServerApplication {
 				(layer) -> new Layer.output.softmaxAndCrossEntity(10, layer)
 		));
 
+		//AsyncNeirons.init(1, false); //в один поток без пачек нейронов
+		AsyncNeirons.init(-1, true); //в переменное число потоков с пачками
 		Train.train(
 				netMnist1,
-				3,
+				1,
 				examplesMNIST,
 				TrainUtil.estimationMax,
 				0.1,

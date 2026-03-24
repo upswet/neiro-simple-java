@@ -3,12 +3,16 @@ package neiro.simple.mlp.stabile.model;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import neiro.simple.mlp.stabile.AsyncNeirons;
 import neiro.simple.mlp.stabile.WeightWrapper;
 import neiro.simple.mlp.stabile.train.IWeightOptimaizer;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -92,8 +96,10 @@ public abstract class Layer implements Serializable {
 
         /**Прямой проход для нейронов слоя (вычисление)*/
         public void forward(){
-            for(Neiron neiron : neirons)
+            AsyncNeirons.asyncForEach(neirons, neiron -> { //for(Neiron neiron : neirons)
                 neiron.process(activation);
+            });
+
         }
 
         /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
@@ -102,7 +108,7 @@ public abstract class Layer implements Serializable {
          * @param endBatchFlg - Только для пакетного режима обучения. Если истина, то данный батч закончился и необходимо скорректировать веса
          * @param batchCurrentSize - Только для пакетного режима обучения. Текущий размер пачки*/
         public void backward(IWeightOptimaizer optimaizer, boolean isBatchFlg, boolean endBatchFlg, int batchCurrentSize){
-            for (Neiron neiron : neirons){
+            AsyncNeirons.asyncForEach(neirons, neiron -> {//for (Neiron neiron : neirons)
                 //Протащим дельту ошибки (вычислим для нейронов текущего слоя на основе уже известных дельт ошибок нейронов следующего слоя)
                 neiron.calcDelta(derivative);
 
@@ -111,7 +117,7 @@ public abstract class Layer implements Serializable {
 
                 //корректируем веса входящих связей для нейрона
                 neiron.correctWeightInputLink(optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
-            }
+            });
         }
 
         public static class sigmoid extends medium{ public sigmoid(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, Fun.SIGMOID, Fun.SIGMOID_DERIVATIVE);}}
@@ -149,11 +155,10 @@ public abstract class Layer implements Serializable {
         public double[] forward(){
             double[] output = new double[neirons.size()];
 
-            for(int i=0; i<neirons.size(); i++) {
-                Neiron neiron = neirons.get(i);
+            AsyncNeirons.asyncIndexedFor(neirons, (i,neiron) -> {//for(int i=0; i<neirons.size(); i++) {Neiron neiron = neirons.get(i);
                 neiron.process(activation);
                 output[i] = neiron.oValue;
-            }
+            });
 
             return output;
         }
@@ -165,9 +170,7 @@ public abstract class Layer implements Serializable {
          * @param endBatchFlg - Только для пакетного режима обучения. Если истина, то данный батч закончился и необходимо скорректировать веса
          * @param batchCurrentSize - Только для пакетного режима обучения. Текущий размер пачки*/
         public void backward(double[] target, IWeightOptimaizer optimaizer, boolean isBatchFlg, boolean endBatchFlg, int batchCurrentSize){
-            for(int i=0; i<target.length; i++){
-                Neiron neiron = neirons.get(i);
-
+            AsyncNeirons.asyncIndexedFor(neirons, (i,neiron) -> {//for(int i=0; i<target.length; i++){ Neiron neiron = neirons.get(i);
                 //вычислим дельту ошибки для нейронов выходного слоя на основе разницы между ожидаемым и полученным значениями
                 neiron.calcDelta(derivative, target[i], derivativeLoss);
 
@@ -176,7 +179,7 @@ public abstract class Layer implements Serializable {
 
                 //корректируем веса входящих связей для нейрона
                 neiron.correctWeightInputLink(optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
-            }
+            });
         }
 
         public static class sigmoid extends output{ public sigmoid(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, Fun.SIGMOID, Fun.SIGMOID_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
