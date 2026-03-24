@@ -192,10 +192,10 @@ public abstract class Layer implements Serializable {
                 // Передаём фиктивные функции активации и производной,
                 // они не будут использоваться, так как forward и calcDelta переопределены.
                 // Инициализация весов — Xavier (подходит для softmax).
-                super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, 
-                        x->x,  // фиктивная активация
-                        neiron->1.0,          // фиктивная производная функции активации
-                        (neiron, target )-> neiron.oValue - target    // Для комбинации softmax + кросс-энтропия дельта равна (output - target) но только если целевой вектор это one-hot вектор
+                super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer,
+                        (UnaryOperator<Double> & Serializable)x->x,  // фиктивная активация
+                        (Function<Neiron, Double> & Serializable) neiron->1.0,          // фиктивная производная функции активации
+                        (BiFunction<Neiron, Double, Double> & Serializable) (neiron, target )-> neiron.oValue - target    // Для комбинации softmax + кросс-энтропия дельта равна (output - target) но только если целевой вектор это one-hot вектор
                 );
             }
 

@@ -27,7 +27,7 @@ public interface IWeightOptimaizer {
     @AllArgsConstructor
     public static class classic implements IWeightOptimaizer{
         /**Гиперпараметры обучения*/
-        double learningRate; //коэффициент скорости обучения
+        double learningRate=0.02; //коэффициент скорости обучения
 
         @Override public void update(WeightWrapper weight, double grad) {weight.item = weight.item - learningRate * grad;}
 
@@ -70,10 +70,9 @@ public interface IWeightOptimaizer {
     }
 
     /**Оптимизатор весовых коэффициентов - ADAM*/
-    @AllArgsConstructor
     public static class adam implements IWeightOptimaizer{
         /**Гиперпараметры оптимизатора ADAM*/
-        double learningRate; //коэффициент скорости обучения
+        double learningRate=0.001; //коэффициент скорости обучения
         @Setter
         public double beta1 = 0.9;
         @Setter public double beta2 = 0.999;
@@ -83,6 +82,27 @@ public interface IWeightOptimaizer {
         double beta2Pow;
         double invCorrection1;
         double invCorrection2;
+
+        public adam(double learningRate) {
+            this.learningRate = learningRate;
+            init();
+        }
+
+        public adam(double learningRate, double beta1, double beta2, double epsilon) {
+            this.learningRate = learningRate;
+            this.beta1 = beta1;
+            this.beta2 = beta2;
+            this.epsilon = epsilon;
+            init();
+        }
+
+        /**Инициализация начальных значений*/
+        private void init() {
+            beta1Pow = 1.0;
+            beta2Pow = 1.0;
+            invCorrection1 = 1.0 / (1.0 - beta1); // для первого шага
+            invCorrection2 = 1.0 / (1.0 - beta2);
+        }
 
         @Override
         public void nextStep(){

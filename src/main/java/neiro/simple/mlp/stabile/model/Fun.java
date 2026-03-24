@@ -32,7 +32,7 @@ public class Fun {
 
     //нормальное распределение
     public static Supplier<Double> INIT_NORMAL(double std){
-        return () -> {
+        return (Supplier<Double> & Serializable) () -> {
             // Генерация случайного числа из нормального распределения
             double u1 = Math.random();
             double u2 = Math.random();
@@ -43,14 +43,18 @@ public class Fun {
 
     //инициализация хавьера
     public static Supplier<Double> INIT_XAVIER (int fanIn, int fanOut) {
-        double std = Math.sqrt(2.0 / (fanIn + fanOut));
-        return INIT_NORMAL(std);
+        return (Supplier<Double> & Serializable) () -> {
+            double std = Math.sqrt(2.0 / (fanIn + fanOut));
+            return INIT_NORMAL(std).get();
+        };
     }
 
     //инициализация he
     public static Supplier<Double> INIT_HE(int fanIn) {
-        double std = Math.sqrt(2.0 / fanIn);
-        return INIT_NORMAL(std);
+        return (Supplier<Double> & Serializable) () -> {
+            double std = Math.sqrt(2.0 / fanIn);
+            return INIT_NORMAL(std).get();
+        };
     }
 
     /**Производные функции потерь*/
