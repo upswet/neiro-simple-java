@@ -12,18 +12,18 @@ public class Fun {
 
     //сигмоида
     public static UnaryOperator<Double> SIGMOID = (UnaryOperator<Double> & Serializable) x -> 1.0 / (1 + Math.exp(-x));
-    public static Function<Neiron, Double> SIGMOID_DERIVATIVE =  (Function<Neiron, Double> & Serializable) n -> (
-            //SIGMOID.apply(n.iValue) * (1 - SIGMOID.apply(n.iValue)) /// классический вариант
-            n.oValue * (1 - n.oValue) // ускоренный вариант
+    public static BiFunction<Double, Double, Double> SIGMOID_DERIVATIVE =  (BiFunction<Double, Double, Double> & Serializable) (iValue, oValue) -> (
+            //SIGMOID.apply(iValue) * (1 - SIGMOID.apply(iValue)) /// классический вариант
+            oValue * (1 - oValue) // ускоренный вариант
     );
 
     //тангес
     public static UnaryOperator<Double> TANH = (UnaryOperator<Double> & Serializable) x -> Math.tanh(x);
-    public static Function<Neiron, Double> TANH_DERIVATIVE = (Function<Neiron, Double> & Serializable) n -> 1.0 - n.oValue * n.oValue; // производная tanh = 1 - tanh²(x)
+    public static BiFunction<Double, Double, Double> TANH_DERIVATIVE = (BiFunction<Double, Double, Double> & Serializable) (iValue, oValue) -> 1.0 - oValue * oValue; // производная tanh = 1 - tanh²(x)
 
     //релу
     public static UnaryOperator<Double> RELU = (UnaryOperator<Double> & Serializable) x -> x > 0 ? x : 0.01 * x;
-    public static Function<Neiron, Double> RELU_DERIVATIVE = (Function<Neiron, Double> & Serializable) n -> n.iValue > 0 ? 1.0 : 0.01;
+    public static BiFunction<Double, Double, Double> RELU_DERIVATIVE = (BiFunction<Double, Double, Double> & Serializable) (iValue, oValue) -> iValue > 0 ? 1.0 : 0.01;
 
     /**Функции инициализации весов
      * std - максимальный вес
@@ -60,8 +60,8 @@ public class Fun {
     /**Производные функции потерь*/
 
     //Mean Squared Error (MSE) — среднеквадратичная ошибка
-    public static BiFunction<Neiron, Double, Double> LOSS_DERIVATIVE_MSE = (BiFunction<Neiron, Double, Double> & Serializable) (neiron, target) -> neiron.oValue - target; //для  MSE  loss = (target - output)^2 производная по output: 2*(output - target) (но обычно берут (output - target)
+    public static BiFunction<Double, Double, Double> LOSS_DERIVATIVE_MSE = (BiFunction<Double, Double, Double> & Serializable) (oValue, target) -> oValue - target; //для  MSE  loss = (target - output)^2 производная по output: 2*(output - target) (но обычно берут (output - target)
 
     //Mean Absolute Error (MAE) — средняя абсолютная ошибка
-    public static BiFunction<Neiron, Double, Double> LOSS_DERIVATIVE_MAE = (BiFunction<Neiron, Double, Double> & Serializable) (neiron, target) ->  neiron.oValue == target ? 1 : neiron.oValue < target ? -0.5 : 0.5;
+    public static BiFunction<Double, Double, Double> LOSS_DERIVATIVE_MAE = (BiFunction<Double, Double, Double> & Serializable) (oValue, target) ->  oValue == target ? 1 : oValue < target ? -0.5 : 0.5;
 }

@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import neiro.simple.mlp.stabile.dto.Example;
 import neiro.simple.mlp.stabile.dto.Examples;
 import neiro.simple.mlp.stabile.dto.TrainResult;
+import neiro.simple.mlp.stabile.model.INetMLP;
 import neiro.simple.mlp.stabile.model.Net;
 
 import java.time.Duration;
@@ -18,7 +19,7 @@ public class Train {
      * @param estimation - функция оценки качества ответа нейросети
      * @param acceptableError - допустимая ошибка при которой ответ нейросети всё равно считается правильным
      * @return - доля правильных ответов*/
-    public static double test(Net net, Example[] data, TrainUtil.Estimation estimation, double acceptableError){
+    public static double test(INetMLP net, Example[] data, TrainUtil.Estimation estimation, double acceptableError){
         int success=0;
         for(int i=0; i< data.length; i++){
             double[] actual = net.forward(data[i].input());
@@ -39,7 +40,7 @@ public class Train {
      * @param batchSize - размер пачки. Минус один если не используем пакетное обучение
      * @param periodStepPrint - периодичность (в шагах) когда выводить промежуточные результаты
      * @return - доля результаты обучения и тестирования*/
-    public static TrainResult train(Net net, int epoch, Examples data, TrainUtil.Estimation estimation, double acceptableError, IWeightOptimaizer optimaizer, int batchSize, int periodStepPrint){
+    public static TrainResult train(INetMLP net, int epoch, Examples data, TrainUtil.Estimation estimation, double acceptableError, IWeightOptimaizer optimaizer, int batchSize, int periodStepPrint){
         net.init(optimaizer.getWeightWrapper()); //инициализация весовых коэффициентов согласно используемому оптимизатору
 
         TrainResult result = new TrainResult();
@@ -66,7 +67,7 @@ public class Train {
      * @param batchSize - размер пачки. Минус один если не используем пакетное обучение
      * @param periodStepPrint - периодичность (в шагах) когда выводить промежуточные результаты
      * @return - длитлеьность обучения в пределах одной эпохи*/
-    private static long trainEpoch(Net net, Example[] data, IWeightOptimaizer optimaizer, int batchSize, int periodStepPrint){
+    private static long trainEpoch(INetMLP net, Example[] data, IWeightOptimaizer optimaizer, int batchSize, int periodStepPrint){
         int printCount = periodStepPrint; //сколько шагов осталось до печати промежуточных значений
         int batchSizeCount = 1; //для пакетного режима обработки. Номер текущего примера в пакете
 
@@ -94,7 +95,7 @@ public class Train {
      * @param optimaizer - оптимизатор весовых коэффициентов
      * @param isEndEpoch - признак конца эпохи
      * @param batchSizeCount - Только для пакетного режима обучения. Текущий размер пачки*/
-    private static int trainExampleBatch(Net net, Example data, IWeightOptimaizer optimaizer, int batchSizeCount, int batchSize, boolean isEndEpoch){
+    private static int trainExampleBatch(INetMLP net, Example data, IWeightOptimaizer optimaizer, int batchSizeCount, int batchSize, boolean isEndEpoch){
         double[] output = net.forward(data.input());
         boolean isEndBatch = batchSizeCount == batchSize; //достигли конца пакета
         net.backward(data.target(),optimaizer,true, isEndEpoch || isEndBatch, batchSizeCount);
@@ -106,7 +107,7 @@ public class Train {
      * @param net - нейросеть типа mlp
      * @param data - данные для обучения
      * @param optimaizer - оптимизатор весовых коэффициентов*/
-    private static void trainExampleNoBatch(Net net, Example data, IWeightOptimaizer optimaizer){
+    private static void trainExampleNoBatch(INetMLP net, Example data, IWeightOptimaizer optimaizer){
         double[] output = net.forward(data.input());
         net.backward(data.target(),optimaizer,false, false, -1);
     }

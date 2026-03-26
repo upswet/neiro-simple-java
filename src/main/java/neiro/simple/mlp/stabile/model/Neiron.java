@@ -44,24 +44,6 @@ public class Neiron implements Serializable{
         oValue = activation.apply(iValue);
     }
 
-    /**Распространить дельту ошибки (Вычислить на основе уже известных дельт ошибок нейронов следующего слоя с которыми он связан)
-     * @param derivative - производная функции активации*/
-    public void calcDelta(Function<Neiron, Double> derivative){
-        double sum = 0F;
-        for (Link outLink : oLinks)
-            sum += outLink.oNeiron.delta * outLink.weight.item;
-        delta = derivative.apply(this) * sum;
-    }
-
-    /**Вычислить дельту ошибки для выходного нейрона на основе разницы между ожидаемым и полученным значениями
-     * @param derivative - производная функции активации
-     * @param derivativeLoss - производная функции потерь
-     * @param target - целевое(ожидаемое) значение нейрона*/
-    public void calcDelta(Function<Neiron, Double> derivative, double target, BiFunction<Neiron, Double, Double> derivativeLoss){
-        //дельта ошибки на выходе нейрона = производная функции потерь * производная функции активации
-        delta=derivativeLoss.apply(this, target) * derivative.apply(this);
-    }
-
     /**Корректируем веса входящих связей для нейрона на основе ранее вычисленной дельты нейрона
      * @param optimaizer - используемый при обучении оптимизатор весовых коэффициентов
      * @param isBatchFlg - если истина то обучение в пакетном режиме. Иначе нет

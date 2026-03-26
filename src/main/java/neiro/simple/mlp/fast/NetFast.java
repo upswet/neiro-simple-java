@@ -1,51 +1,51 @@
-package neiro.simple.mlp.stabile.model;
+package neiro.simple.mlp.fast;
 
 import neiro.simple.mlp.stabile.WeightWrapper;
+import neiro.simple.mlp.stabile.model.INetMLP;
+import neiro.simple.mlp.stabile.model.Layer;
 import neiro.simple.mlp.stabile.train.IWeightOptimaizer;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-/**Модель нейросети класса MLP (Полносвязнная нейроная сеть). Каждый нейрон реализован как объект. Без матричных вычислений*/
-public class Net implements INetMLP, Serializable {
-    List<Layer> layers = new ArrayList<>();
+/**Ускоренная нейросеть*/
+public class NetFast implements INetMLP, Serializable {
+    LayerFast[] layers;
 
-    /**Конструктор нейросети
-     * @param layerCreateFuns - список функций создания слоя с получением в качестве аргумента предыдущего слоя
-     * @return - нейросеть*/
-    public Net(List<Function<Layer, Layer>> layerCreateFuns){
-        layers.add(layerCreateFuns.getFirst().apply(null));
+    public NetFast(List<Function<LayerFast, LayerFast>> layerCreateFuns){
+        layers = new LayerFast[layerCreateFuns.size()];
+
+        layers[0]=layerCreateFuns.get(0).apply(null);
         for(int i=1; i<layerCreateFuns.size(); i++)
-            layers.add(layerCreateFuns.get(i).apply(layers.getLast()));
+            layers[i]=layerCreateFuns.get(i).apply(layers[i-1]);
 
-        if (!Layer.input.class.isAssignableFrom(layers.getFirst().getClass()))
+        if (!LayerFast.input.class.isAssignableFrom(layers[0].getClass()))
             throw new RuntimeException("Первый слой должен быть входным!");
         for(int i=1; i<layerCreateFuns.size()-1; i++)
-            if (!Layer.medium.class.isAssignableFrom(layers.get(i).getClass()))
+            if (!LayerFast.medium.class.isAssignableFrom(layers[i].getClass()))
                 throw new RuntimeException("Между входным и выходным-и слоями должны быть только промежуточные слои");
-        if (!Layer.output.class.isAssignableFrom(layers.getLast().getClass()))
+        if (!LayerFast.output.class.isAssignableFrom(layers[layers.length-1].getClass()))
             throw new RuntimeException("Последний слой должен быть выходным!");
     }
 
     /**Инициализация веса
      * @param createWeightWrapperFun - функция создания WeightWrapper*/
     public void init(Function<Double, WeightWrapper> createWeightWrapperFun){
-        for(int i=1; i<layers.size(); i++)
-            ((Layer.noInput)layers.get(i)).init(createWeightWrapperFun);
+        for(int i=1; i<layers.length; i++)
+            ((LayerFast.noInput)layers[i]).init(createWeightWrapperFun);
     }
 
     /**Прямое распространение сигнала (вычисление)
      * @param inputs - вектор входных значений
      * @return -вектор выходных значений*/
     public double[] forward(double[] inputs){
-        ((Layer.input)layers.getFirst()).forward(inputs);
+        ((LayerFast.input)layers[0]).forward(inputs);
 
-        for (int i=1; i<layers.size()-1; i++)
-            ((Layer.medium)layers.get(i)).forward();
+        for (int i=1; i<layers.length-1; i++)
+            ((LayerFast.medium)layers[i]).forward();
 
-        return ((Layer.output)layers.getLast()).forward();
+        return ((LayerFast.output)layers[layers.length-1]).forward();
     }
 
     /**Обратное распространение ошибки (корректировка весов). Может запускаться только после выполнения прямого распространения
@@ -70,12 +70,12 @@ public class Net implements INetMLP, Serializable {
             - Входной слой не имеет входящих связей, а его исходящие связи (oLinks) уже обновлены на предыдущем шаге. Ничего не делаем
         */
 
-        ((Layer.output)layers.getLast()).backward(target, optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
+        ((LayerFast.output)layers[layers.length-1]).backward(target, optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
 
-        for (int i=layers.size()-2; i>0; i--)
-            ((Layer.medium)layers.get(i)).backward(null,optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
+        for (int i=layers.length-2; i>0; i--)
+            ((LayerFast.medium)layers[i]).backward(null,optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
 
         // Ничего не делаем так как исходящие из входного слоя связи уже обновлены первым промежуточным слоем, а дельты вычислять не надо так как входящих связей нет
-        // ((Layer.input)layers.getFirst()).backward();
+        // ((LayerFast.input)layers.getFirst()).backward();
     }
 }
