@@ -1,20 +1,3 @@
-package neiro.simple;
-
-import lombok.extern.slf4j.Slf4j;
-import neiro.simple.mlp.fast.LayerFast;
-import neiro.simple.mlp.fast.NetFast;
-import neiro.simple.mlp.stabile.async.AsyncNeirons;
-import neiro.simple.mlp.stabile.dto.Examples;
-import neiro.simple.mlp.stabile.task.TaskMNIST;
-import neiro.simple.mlp.stabile.train.IWeightOptimaizer;
-import neiro.simple.mlp.stabile.train.Train;
-import neiro.simple.mlp.stabile.train.TrainUtil;
-
-import java.util.List;
-
-@Slf4j
-public class ServerApplication {
-	public static void main(String[] args) {
 		Examples examplesMNIST = new TaskMNIST().getData(null);
 
 
@@ -41,6 +24,8 @@ public class ServerApplication {
 		));
 
 
+		//AsyncNeirons.init(1, false); //в один поток без пачек нейронов
+		AsyncNeirons.init(-1, true); //в переменное число потоков с пачками
 		Train.train(
 				net,
 				1,
@@ -62,9 +47,3 @@ public class ServerApplication {
 		Net netLoad = (Net) Utils.load("net1");
 		log.info("test={}", Train.test(netLoad, examplesMNIST.testData(), TrainUtil.estimationMax, 0.01));
 		 */
-
-		//ExampleMLP.xor();
-		//ExampleMLP.mnist();
-		//ExampleMLP.iris();
-	}
-}
