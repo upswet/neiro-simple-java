@@ -2,6 +2,7 @@ package neiro.simple.mlp.fast;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
+import neiro.simple.mlp.stabile.AsyncNeirons;
 import neiro.simple.mlp.stabile.WeightWrapper;
 import neiro.simple.mlp.stabile.model.Fun;
 import neiro.simple.mlp.stabile.train.IWeightOptimaizer;
@@ -123,7 +124,7 @@ public abstract class LayerFast {
          * @param endBatchFlg - Только для пакетного режима обучения. Если истина, то данный батч закончился и необходимо скорректировать веса
          * @param batchCurrentSize - Только для пакетного режима обучения. Текущий размер пачки*/
         public void backward(double[] target, IWeightOptimaizer optimaizer, boolean isBatchFlg, boolean endBatchFlg, int batchCurrentSize){
-            for(int nIndex=0; nIndex<size; nIndex++){
+            AsyncNeirons.asyncIndexedFor(size, nIndex ->{ //for(int nIndex=0; nIndex<size; nIndex++){
                 //Протащим дельту ошибки (вычислим для нейронов текущего слоя на основе уже известных дельт ошибок нейронов следующего слоя)
                 neironCalcDelta(nIndex, target);
 
@@ -132,7 +133,7 @@ public abstract class LayerFast {
 
                 //корректируем веса входящих связей для нейрона
                 correctWeightInputLink(nIndex, optimaizer, isBatchFlg, endBatchFlg, batchCurrentSize);
-            }
+            });
         }
 
         /**Вычислить дельту ошибки для нейрона
@@ -158,8 +159,9 @@ public abstract class LayerFast {
 
         /**Прямой проход по нейронам слоя (вычисление)*/
         public void forward(){
-            for (int i=0; i<size; i++)
+            AsyncNeirons.asyncIndexedFor(size, i-> { //for (int i=0; i<size; i++)
                 neironProcess(i);
+            });
         }
 
         /**Распространить дельту ошибки для нейрона
@@ -198,8 +200,9 @@ public abstract class LayerFast {
         /**Прямой проход по нейронам слоя (вычисление)
          * @return - выходной вектор*/
         public double[] forward(){
-            for (int i=0; i<size; i++)
+            AsyncNeirons.asyncIndexedFor(size, i-> { //for (int i=0; i<size; i++)
                 neironProcess(i);
+            });
             return oValue;
         }
 

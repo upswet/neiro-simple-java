@@ -46,11 +46,11 @@ public class AsyncNeirons {
             asyncForEachNoBatch(neirons, action);
     }
 
-    public static void asyncIndexedFor(List<Neiron> neirons, BiConsumer<Integer, Neiron> action){
+    public static void asyncIndexedFor(int size, Consumer<Integer> action){
         if (batchFlg)
-            asyncIndexedForBatch(neirons, action, calcBatchSize(neirons.size()));
+            asyncIndexedForBatch(size, action, calcBatchSize(size));
         else
-            asyncIndexedForNoBatch(neirons, action);
+            asyncIndexedForNoBatch(size, action);
 
     }
 
@@ -86,20 +86,19 @@ public class AsyncNeirons {
 
     /**
      * Асинхронно выполняет действие для каждого элемента списка с доступом к индексу и ждёт завершения всех задач.
-     * @param neirons список элементов
+     * @param size количество элементов
      * @param action действие, принимающее индекс и сам Neiron
      */
-    public static void asyncIndexedForNoBatch(List<Neiron> neirons, BiConsumer<Integer, Neiron> action) {
-        if (neirons.isEmpty()) {
+    public static void asyncIndexedForNoBatch(int size, Consumer<Integer> action) {
+        if (size==0) {
             return;
         }
-        CountDownLatch latch = new CountDownLatch(neirons.size());
-        for (int i = 0; i < neirons.size(); i++) {
+        CountDownLatch latch = new CountDownLatch(size);
+        for (int i = 0; i < size; i++) {
             int index = i;
-            Neiron neiron = neirons.get(i);
             executor.submit(() -> {
                 try {
-                    action.accept(index, neiron);
+                    action.accept(index);
                 } catch (Exception e) {
                     e.printStackTrace();
                 } finally {
@@ -154,27 +153,25 @@ public class AsyncNeirons {
 
     /**
      * Асинхронно выполняет действие для каждого элемента списка с доступом к индексу, группируя элементы в пакеты.
-     * @param neirons   список элементов
+     * @param size   количество элементов
      * @param action    действие, принимающее индекс и сам Neiron
      * @param batchSize размер пакета (количество нейронов, обрабатываемых в одной задаче)
      */
-    public static void asyncIndexedForBatch(List<Neiron> neirons, BiConsumer<Integer, Neiron> action, int batchSize) {
-        if (neirons.isEmpty()) return;
+    public static void asyncIndexedForBatch(int size, Consumer<Integer> action, int batchSize) {
+        if (size==0) return;
         if (batchSize <= 0) batchSize = 1;
 
-        int totalTasks = (neirons.size() + batchSize - 1) / batchSize;
+        int totalTasks = (size + batchSize - 1) / batchSize;
         CountDownLatch latch = new CountDownLatch(totalTasks);
 
-        for (int start = 0; start < neirons.size(); start += batchSize) {
-            int end = Math.min(start + batchSize, neirons.size());
-            List<Neiron> batch = neirons.subList(start, end);
+        for (int start = 0; start < size; start += batchSize) {
+            int end = Math.min(start + batchSize, size);
             int finalStart = start;
             executor.submit(() -> {
                 try {
-                    for (int i = 0; i < batch.size(); i++) {
+                    for (int i = 0; i <end-finalStart; i++) {
                         int globalIndex = finalStart + i;
-                        Neiron neiron = batch.get(i);
-                        action.accept(globalIndex, neiron);
+                        action.accept(globalIndex);
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

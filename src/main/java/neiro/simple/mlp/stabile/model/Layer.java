@@ -96,8 +96,10 @@ public abstract class Layer implements Serializable {
          * @param endBatchFlg - Только для пакетного режима обучения. Если истина, то данный батч закончился и необходимо скорректировать веса
          * @param batchCurrentSize - Только для пакетного режима обучения. Текущий размер пачки*/
         public void backward(double[] target, IWeightOptimaizer optimaizer, boolean isBatchFlg, boolean endBatchFlg, int batchCurrentSize){
-            AsyncNeirons.asyncIndexedFor(neirons, (i,neiron) -> {//for(int i=0; i<neirons.size(); i++) {Neiron neiron = neirons.get(i);
-                //Если это выходной слой то вычислим дельту ошибки для выходного нейрона на основе разницы между ожидаемым и полученным значениям
+            AsyncNeirons.asyncIndexedFor(neirons.size(),i -> {//for(int i=0; i<neirons.size(); i++) {
+                 Neiron neiron = neirons.get(i);
+
+                 //Если это выходной слой то вычислим дельту ошибки для выходного нейрона на основе разницы между ожидаемым и полученным значениям
                 //Если это промежуточный слой то протащим дельту ошибки (вычислим для нейронов текущего слоя на основе уже известных дельт ошибок нейронов следующего слоя)
                 calcDelta(neiron, target == null ? -1 : target[i]);
 
@@ -177,7 +179,9 @@ public abstract class Layer implements Serializable {
         public double[] forward(){
             double[] output = new double[neirons.size()];
 
-            AsyncNeirons.asyncIndexedFor(neirons, (i,neiron) -> {//for(int i=0; i<neirons.size(); i++) {Neiron neiron = neirons.get(i);
+            AsyncNeirons.asyncIndexedFor(neirons.size(), i-> {//for(int i=0; i<neirons.size(); i++) {
+                Neiron neiron = neirons.get(i);
+
                 neiron.process(activation);
                 output[i] = neiron.oValue;
             });

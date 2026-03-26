@@ -46,8 +46,8 @@ public class ServerApplication {
 		));
 
 
-		//AsyncNeirons.init(1, false); //в один поток без пачек нейронов
-		AsyncNeirons.init(-1, true); //в переменное число потоков с пачками
+		AsyncNeirons.init(1, false); //в один поток без пачек нейронов
+		//AsyncNeirons.init(-1, true); //в переменное число потоков с пачками
 		Train.train(
 				net,
 				1,
