@@ -3,7 +3,6 @@ package neiro.simple;
 import lombok.extern.slf4j.Slf4j;
 import neiro.simple.mlp.fast.LayerFast;
 import neiro.simple.mlp.fast.NetFast;
-import neiro.simple.mlp.stabile.async.AsyncNeirons;
 import neiro.simple.mlp.stabile.dto.Examples;
 import neiro.simple.mlp.stabile.task.TaskMNIST;
 import neiro.simple.mlp.stabile.train.IWeightOptimaizer;
