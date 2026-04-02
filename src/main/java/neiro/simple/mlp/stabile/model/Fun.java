@@ -25,6 +25,11 @@ public class Fun {
     public static UnaryOperator<Double> RELU = (UnaryOperator<Double> & Serializable) x -> x > 0 ? x : 0.01 * x;
     public static BiFunction<Double, Double, Double> RELU_DERIVATIVE = (BiFunction<Double, Double, Double> & Serializable) (iValue, oValue) -> iValue > 0 ? 1.0 : 0.01;
 
+    //HardTanh
+    public static UnaryOperator<Double> HARDTANH = (UnaryOperator<Double> & Serializable) x -> Math.max(-1, Math.min(1, x));
+    public static BiFunction<Double, Double, Double> HARDTANH_DERIVATIVE = (BiFunction<Double, Double, Double> & Serializable) (iValue, oValue) ->  (iValue >= -1.0 && iValue <= 1.0) ? 1.0 : 0.0;
+
+
     /**Функции инициализации весов
      * std - максимальный вес
      * fanIn - число входов в слой

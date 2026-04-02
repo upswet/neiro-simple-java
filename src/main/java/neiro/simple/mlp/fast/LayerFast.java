@@ -174,6 +174,7 @@ public abstract class LayerFast {
         public static class sigmoid extends LayerFast.medium { public sigmoid(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.size, nCount), prevoisLayer, Fun.SIGMOID, Fun.SIGMOID_DERIVATIVE);}}
         public static class tanh extends LayerFast.medium { public tanh(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.size, nCount), prevoisLayer, Fun.TANH, Fun.TANH_DERIVATIVE);}}
         public static class relu extends LayerFast.medium { public relu(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.size), prevoisLayer, Fun.RELU, Fun.RELU_DERIVATIVE);}}
+        public static class hard extends LayerFast.medium { public hard(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.size), prevoisLayer, Fun.HARDTANH, Fun.HARDTANH_DERIVATIVE);}}
     }
 
     /**Выходной слой*/
@@ -214,6 +215,7 @@ public abstract class LayerFast {
         public static class sigmoid extends LayerFast.output { public sigmoid(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.size, nCount), prevoisLayer, Fun.SIGMOID, Fun.SIGMOID_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
         public static class tanh extends LayerFast.output { public tanh(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.size, nCount), prevoisLayer, Fun.TANH, Fun.TANH_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
         public static class relu extends LayerFast.output { public relu(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.size), prevoisLayer, Fun.RELU, Fun.RELU_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
+        public static class hard extends LayerFast.output { public hard(int nCount, LayerFast prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.size), prevoisLayer, Fun.HARDTANH, Fun.HARDTANH_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
         public static class softmaxAndCrossEntity extends LayerFast.output {
             /*Функция активации - softmax
              * функция потерь - cross entity*/

@@ -94,7 +94,7 @@ public abstract class Layer implements Serializable {
             for(int i=0; i<neirons.size(); i++) {
                  Neiron neiron = neirons.get(i);
 
-                 //Если это выходной слой то вычислим дельту ошибки для выходного нейрона на основе разницы между ожидаемым и полученным значениям
+                //Если это выходной слой то вычислим дельту ошибки для выходного нейрона на основе разницы между ожидаемым и полученным значениям
                 //Если это промежуточный слой то протащим дельту ошибки (вычислим для нейронов текущего слоя на основе уже известных дельт ошибок нейронов следующего слоя)
                 calcDelta(neiron, target == null ? -1 : target[i]);
 
@@ -146,6 +146,7 @@ public abstract class Layer implements Serializable {
         public static class sigmoid extends medium{ public sigmoid(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, Fun.SIGMOID, Fun.SIGMOID_DERIVATIVE);}}
         public static class tanh extends medium{ public tanh(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, Fun.TANH, Fun.TANH_DERIVATIVE);}}
         public static class relu extends medium{ public relu(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.neirons.size()), prevoisLayer, Fun.RELU, Fun.RELU_DERIVATIVE);}}
+        public static class hard extends medium{ public hard(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.neirons.size()), prevoisLayer, Fun.HARDTANH, Fun.HARDTANH_DERIVATIVE);}}
     }
 
     /**Выходной слой*/
@@ -195,6 +196,7 @@ public abstract class Layer implements Serializable {
         public static class sigmoid extends output{ public sigmoid(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, Fun.SIGMOID, Fun.SIGMOID_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
         public static class tanh extends output{ public tanh(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_XAVIER(prevoisLayer.neirons.size(), nCount), prevoisLayer, Fun.TANH, Fun.TANH_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
         public static class relu extends output{ public relu(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.neirons.size()), prevoisLayer, Fun.RELU, Fun.RELU_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
+        public static class hard extends output{ public hard(int nCount, Layer prevoisLayer) {super(nCount, Fun.INIT_HE(prevoisLayer.neirons.size()), prevoisLayer, Fun.HARDTANH, Fun.HARDTANH_DERIVATIVE, Fun.LOSS_DERIVATIVE_MSE);}}
         public static class softmaxAndCrossEntity extends output{
             /*Функция активации - softmax
             * функция потерь - cross entity*/

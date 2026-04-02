@@ -1,9 +1,13 @@
-package neiro.simple.bpe;
+package neiro.simple.nlputil;
+
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/**Самописный БиМап с возможность быстрого поиска как по ключам так и по значениям*/
 public class BiMap <K, V> {
     private final Map<K, V> keyToValue = new HashMap<>();
     private final Map<V, K> valueToKey = new HashMap<>();
