@@ -1,0 +1,30 @@
+		Examples examplesMNIST = new TaskMNIST().getData(null);
+
+
+		INetMLP net = new Net(List.of(
+				//input
+				(layer) -> new Layer.input(784),
+				//medium
+				(layer) -> new Layer.medium.tanh(100, layer),
+				//(layer) -> new Layer.medium.relu(100, layer),
+				//output
+				(layer) -> new Layer.output.softmaxAndCrossEntity(10, layer)
+				//(layer) -> new Layer.output.sigmoid(10,layer)
+				//(layer) -> new Layer.output.relu(10,layer)
+		));
+
+
+
+		Train.train(
+				net,
+				5,
+				examplesMNIST,
+				TrainUtil.estimationMax,
+				0.05,
+				new IWeightOptimaizer.classic(0.02),
+				//new IWeightOptimaizer.adam(0.01),
+				//new IWeightOptimaizer.momentum(0.01, 0.2),
+				//new IWeightOptimaizer.nag(0.01, 0.2),
+				-1,
+				5000
+		);

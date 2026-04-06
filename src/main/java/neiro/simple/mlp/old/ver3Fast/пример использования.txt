@@ -1,0 +1,26 @@
+		Examples examplesMNIST = new TaskMNIST().getData(null);
+
+
+		NetFast net = new NetFast(List.of(
+				//input
+				(layer) -> new LayerFast.input(784),
+				//medium
+				(layer) -> new LayerFast.medium.tanh(100, layer),
+				//output
+				(layer) -> new LayerFast.output.sigmoid(10, layer)
+		));
+
+
+		Train.train(
+				net,
+				5,
+				examplesMNIST,
+				TrainUtil.estimationMax,
+				0.05,
+				new IWeightOptimaizer.classic(0.02),
+				//new IWeightOptimaizer.adam(0.01),
+				//new IWeightOptimaizer.momentum(0.01, 0.2),
+				//new IWeightOptimaizer.nag(0.01, 0.2),
+				-1,
+				5000
+		);

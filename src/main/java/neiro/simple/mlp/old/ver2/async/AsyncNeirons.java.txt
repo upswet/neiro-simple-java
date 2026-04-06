@@ -1,0 +1,93 @@
+package neiro.simple.mlp.ver2.async;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+
+/**Выполнение асинхронных действий над нейронами
+
+for(int i=0; i<neirons.size(); i++) => AsyncNeirons.forEach(neirons.size(), i -> {...});
+
+*/
+public class AsyncNeirons {
+
+    private static int cpus = Runtime.getRuntime().availableProcessors(); //количество процессоров
+
+    private static ExecutorService executor = Executors.newFixedThreadPool(
+            cpus,
+            r -> {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                return t;
+            }
+    );;
+
+
+    public static void forEach(int size, Consumer<Integer> action){
+        //syncForEach(size, action);
+
+        if (size > 50)
+            asyncForEach(size, action, cpus*2);
+        else
+            syncForEach(size, action);
+    }
+
+    /**
+     * Асинхронно выполняет действие для каждого элемента списка с доступом к индексу, группируя элементы в пакеты.
+     * @param size   количество элементов
+     * @param action    действие, принимающее индекс и сам Neiron
+     * @param batchSize размер пакета (количество нейронов, обрабатываемых в одной задаче)
+     */
+    public static void asyncForEach(int size, Consumer<Integer> action, int batchSize) {
+        if (size==0) return;
+        if (batchSize <= 0) batchSize = 1;
+
+        int totalTasks = (size + batchSize - 1) / batchSize;
+        CountDownLatch latch = new CountDownLatch(totalTasks);
+
+        for (int start = 0; start < size; start += batchSize) {
+            int end = Math.min(start + batchSize, size);
+            int finalStart = start;
+            executor.submit(() -> {
+                try {
+                    for (int i = 0; i <end-finalStart; i++) {
+                        int globalIndex = finalStart + i;
+                        action.accept(globalIndex);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Waiting for async tasks was interrupted", e);
+        }
+    }
+
+    /**
+     * Синхронно выполняет действие для каждого элемента списка с доступом к индексу
+     * @param size   количество элементов
+     * @param action    действие, принимающее индекс и сам Neiron
+     */
+    public static void syncForEach(int size, Consumer<Integer> action) {
+        if (size==0) return;
+
+        for(int i=0; i<size; i++)
+            action.accept(i);
+    }
+
+    public static void shutdown() {
+        executor.shutdown();
+    }
+
+
+
+    //public static void shutdown() {executor.shutdown();}
+}
