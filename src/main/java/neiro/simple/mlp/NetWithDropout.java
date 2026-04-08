@@ -6,13 +6,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.Iterator;
 import java.util.List;
 
-/**Максимально ускоренная полносвязанная нейросеть без использования матриц, с условным разбиением на нейроны, связи и слои*/
+/**Максимально ускоренная полносвязанная нейросеть без использования матриц, с условным разбиением на нейроны, связи и слои
+ * c дропаутом*/
 @Slf4j
-public class Net implements Serializable {
-    public static float NEGATIVE_SAMPLING_VALUE = -666F; //константа для NEGATIVE_SAMPLING. Не поддерживается. Смысл в том чтобы не бежать во всем выходным нейрона (for (int curr = 0; curr < currSize; curr++)) а только по нужным  if (layer == sizes.length - 1) {Arrays.fill(deltaLayer, 0f); for (int idx = 0; idx < example.activeIndices.length; idx++) {int curr = example.activeIndices[idx];
+public class NetWithDropout implements Serializable {
 
     interface FloatUnaryOp extends Serializable { float apply(float x);}
     interface FloatBinaryOp extends Serializable { float apply(float a, float b);}
@@ -28,10 +27,15 @@ public class Net implements Serializable {
     public static class LayerMedium extends Layer {
         final InitFunTypeEnum initFun;
         final ActivationTypeEnum fun;
-        public LayerMedium(Integer size, InitFunTypeEnum initFun, ActivationTypeEnum fun) {
+        final float dropoutRate;
+        public LayerMedium(Integer size, InitFunTypeEnum initFun, ActivationTypeEnum fun, float dropoutRate) {
             super(size);
             this.initFun = initFun;
             this.fun = fun;
+            this.dropoutRate = dropoutRate;
+        }
+        public LayerMedium(Integer size, InitFunTypeEnum initFun, ActivationTypeEnum fun) {
+            this(size, initFun, fun, 0.0F);
         }
     }
 
@@ -236,39 +240,45 @@ public class Net implements Serializable {
     };
 
     // === Поля сети ===
-    public final int[] sizes;                 // размеры слоёв (кол-во нейронов)
-    public final ActivationTypeEnum[] funs;   // тип активации каждого слоя
-    public final LossTypeEnum lossType; //тип функции потерь
+    private final int[] sizes;                 // размеры слоёв (кол-во нейронов)
+    private final ActivationTypeEnum[] funs;   // тип активации каждого слоя
+    private final LossTypeEnum lossType; //тип функции потерь
+    // Для дропаута
+    private transient float[][] dropoutMask;   // маска для каждого слоя
+    private float[] dropoutRate; //доля дропаута по слоям
+    private transient boolean isTraining = false;         // флаг обучения (для отключения dropout на тесте)
 
-    // нейроны
-    public transient float[][] iValue;   // входы нейронов
-    public transient float[][] oValue;   // выходы нейронов
-    public transient float[][] delta;    // дельты ошибок
+    // нейроны [номер слоя][номер нейрона]
+    private transient float[][] iValue;   // входы нейронов
+    private transient float[][] oValue;   // выходы нейронов
+    private transient float[][] delta;    // дельты ошибок
 
     // смещения (bias)
-    public final float[][] biasWeight;
+    private final float[][] biasWeight;
     private transient float[][] biasAcc;   // для batch
     private transient float[][] biasM1;    // для моментов
     private transient float[][] biasM2;
 
-    // веса связей: [слой][нейрон-следующего-слоя][нейрон-текущего-слоя]
-    //linkWeight[1] — веса от входного слоя к скрытому
-    public final float[][][] linkWeight;
+    // веса связей: [layer][currNeuron][prevNeuron]
+    private final float[][][] linkWeight;
     private transient float[][][] linkAcc;
     private transient float[][][] linkM1;
     private transient float[][][] linkM2;
 
     // === Конструктор ===
-    public Net(List<Layer> layers, @NonNull LossTypeEnum lossType) {
+    public NetWithDropout(List<Layer> layers, @NonNull LossTypeEnum lossType) {
         //Проверки
         if (layers.size() < 2) throw new RuntimeException("layer.size < 2 !");
         if (!(layers.getFirst() instanceof LayerInput))
             throw new RuntimeException("First layer not input!");
+        if (((LayerMedium)layers.getLast()).dropoutRate>0) throw new RuntimeException("output layer must not have dropoutRate > 0");
         if (lossType == LossTypeEnum.CROSS_ENTROPY) {
             LayerMedium outputLayer = (LayerMedium) layers.getLast();
             if (outputLayer.fun != ActivationTypeEnum.SIGMOID && outputLayer.fun != ActivationTypeEnum.SOFTMAX)
                 throw new RuntimeException("For CROSS_ENTROPY only SOFTMAX or SIGMOID allowed");
         }
+
+
         this.lossType = lossType;
 
         int layerCount = layers.size();
@@ -285,6 +295,9 @@ public class Net implements Serializable {
         linkM1 = new float[layerCount][][];
         linkM2 = new float[layerCount][][];
         funs = new ActivationTypeEnum[layerCount];
+
+        dropoutRate = new float[layerCount];
+        dropoutMask = new float[layerCount][];
 
         for (int i = 0; i < layerCount; i++) {
             sizes[i] = layers.get(i).size;
@@ -313,6 +326,11 @@ public class Net implements Serializable {
                     for (int prev = 0; prev < sizes[i-1]; prev++) {
                         linkWeight[i][curr][prev] = layer.initFun.init.apply(sizes[i-1], sizes[i]);
                     }
+                }
+
+                dropoutRate[i] = layer.dropoutRate;
+                if (layer.dropoutRate > 0) {
+                    dropoutMask[i] = new float[sizes[i]];
                 }
             }
         }
@@ -347,12 +365,27 @@ public class Net implements Serializable {
                 //вычислим выходное значение нейрона через функцию его активации от его входного значения
                 oValue[layer][curr] = act.activation.apply(sum);
             }
+
+            //дропаут
+            if (isTraining && dropoutRate[layer] > 0) {
+                float scale = 1.0f / (1.0f - dropoutRate[layer]);
+                for (int curr = 0; curr < currSize; curr++) {
+                    if (Math.random() < dropoutRate[layer]) {
+                        dropoutMask[layer][curr] = 0f;
+                        oValue[layer][curr] = 0f;
+                    } else {
+                        dropoutMask[layer][curr] = scale;
+                        oValue[layer][curr] *= scale;
+                    }
+                }
+            }
         }
 
         // softmax для выходного слоя, если нужно
         if (funs[sizes.length-1] == ActivationTypeEnum.SOFTMAX) {
             oValue[sizes.length-1] = NetUtils.toSoftmax(oValue[sizes.length-1]);
         }
+
 
         return oValue[sizes.length-1];
     }
@@ -403,6 +436,11 @@ public class Net implements Serializable {
                         sum += deltaNext[next] * linkNext[next][curr];
                     }
                     deltaLayer[curr] = sum * act.derivative.apply(iVal[curr], oVal[curr]);
+                }
+
+                //дропаут
+                if (isTraining && dropoutRate[layer] > 0) {
+                    deltaLayer[curr] *= dropoutMask[layer][curr];
                 }
 
                 //зная дельту ошибки нейрона
@@ -624,6 +662,7 @@ public class Net implements Serializable {
      * @param acceptableError - допустимая ошибка при которой ответ нейросети всё равно считается правильным
      * @return - доля правильных ответов*/
     public float test(Example[] data, Estimation estimation, Float acceptableError) {
+        isTraining = false;
         int success = 0;
         for (Example ex : data) {
             float[] output = forward(ex.input());
@@ -639,12 +678,13 @@ public class Net implements Serializable {
      * @param estimation - функция оценки качества ответа нейросети
      * @param acceptableError - допустимая ошибка при которой ответ нейросети всё равно считается правильным
      * @param optimizator - параметры оптимизатора весовых коэффициентов
-     * @param batchSize - размер пачки обучения. Минус один если не используем пакетное обучение
+     * @param batchSize - размер пачки. Минус один если не используем пакетное обучение
      * @param periodStepPrint - периодичность (в шагах) когда выводить промежуточные результаты
      * @return - доля результаты обучения и тестирования*/
     public TrainResult train(int epoch, Examples data, Estimation estimation, Float acceptableError, Optimizator optimizator, int batchSize, int periodStepPrint) {
         TrainResult result = new TrainResult();
         for (int e = 1; e <= epoch; e++) {
+            isTraining = true;
             long dur = trainEpoch(data.trainData(), optimizator, batchSize, periodStepPrint);
             float qual = test(data.testData(), estimation, acceptableError);
             result.set(dur, e, qual);
@@ -654,45 +694,7 @@ public class Net implements Serializable {
                 break;
             }
         }
+        isTraining = false;
         return result;
-    }
-
-    /**Потоковое обучение через итератор. Контроль эпох на стороне итератора
-     * @param exampleIterator - итератор для генерирования примеров
-     * @param optimizator - оптимизатор весового коэффициента
-     * @param periodStepPrint - раз в сколько примером печатаем промежуточный результат (-1 для отказа от печати)
-     * @param totalExamples - общее кол-во примеров (для печати прогресса)
-     * @param batchSize - размер пачки для пакетного режима (-1 если пакетный режим отключен)*/
-    public void trainOnStream(Iterator<Example> exampleIterator, Optimizator optimizator,
-                              int totalExamples, int batchSize, int periodStepPrint) {
-        int processed = 0;
-        int batchCurrentSize = 0;
-        boolean isBatch = batchSize > 0;
-        long start = System.nanoTime();
-        long lastStep = start;
-
-        while (exampleIterator.hasNext()) {
-            Example ex = exampleIterator.next();
-            trainExample(ex, optimizator, isBatch); // прямое распространение + backward с накоплением градиентов
-            batchCurrentSize++;
-
-            // Если набрали батч или это последний пример
-            if (isBatch && (batchCurrentSize == batchSize || !exampleIterator.hasNext())) {
-                if (optimizator.type == OptimizatorTypeEnum.ADAM) {
-                    optimizator.adamNextStep(); // обновляем шаг Adam перед применением градиентов
-                }
-                applyGradients(optimizator, batchCurrentSize);
-                batchCurrentSize = 0;
-            }
-
-            processed++;
-            if (periodStepPrint > 0 && processed % periodStepPrint == 0) {
-                log.info("Processed {} / {} examples. Step duration {} ms, total {} ms",
-                        processed, totalExamples,
-                        (System.nanoTime() - lastStep) / 1_000_000,
-                        (System.nanoTime() - start) / 1_000_000);
-                lastStep = System.nanoTime();
-            }
-        }
     }
 }

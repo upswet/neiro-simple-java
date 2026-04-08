@@ -2,8 +2,8 @@ package neiro.simple;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import neiro.simple.mlp.ver2.Utils;
-import neiro.simple.mlp2.Net;
+import neiro.simple.mlp.util.FileUtils;
+import neiro.simple.mlp.Net;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -36,6 +36,7 @@ public class ServerApplication {
 						//medium
 						//new Net.LayerMedium(100, Net.InitFunTypeEnum.XAVIER, Net.ActivationTypeEnum.TANH),
 						new Net.LayerMedium(100, Net.InitFunTypeEnum.XAVIER, Net.ActivationTypeEnum.SIGMOID),
+						//new Net.LayerMedium(100, Net.InitFunTypeEnum.XAVIER, Net.ActivationTypeEnum.SIGMOID, 0.2F),
 						//new Net.LayerMedium(100, Net.InitFunTypeEnum.HE, Net.ActivationTypeEnum.RELU), //нужен адам-оптимизатор, иначе умирающие нейроны
 						//output
 						new Net.LayerMedium(10, Net.InitFunTypeEnum.XAVIER, Net.ActivationTypeEnum.SOFTMAX)
@@ -62,11 +63,12 @@ public class ServerApplication {
 		);
 
 
+		/*
 		//проверка сохраннения / загрузки
-		Utils.save("net1", net);
-		Net netLoad = (Net) Utils.load("net1");
+		FileUtils.save("net1", net);
+		Net netLoad = (Net) FileUtils.load("net1");
 		log.info("test={}", net.test(data.testData(), Net.estimationMax, 0.01F));
-
+		*/
 	}
 
 	/**
