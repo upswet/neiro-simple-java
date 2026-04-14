@@ -1,7 +1,4 @@
-package neiro.simple.nlputil;
-
-import lombok.Getter;
-import lombok.Setter;
+package neiro.simple.nlputil.bpe;
 
 import java.util.HashMap;
 import java.util.Map;
