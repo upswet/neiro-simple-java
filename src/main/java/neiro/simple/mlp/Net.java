@@ -12,8 +12,6 @@ import java.util.List;
 /**Максимально ускоренная полносвязанная нейросеть без использования матриц, с условным разбиением на нейроны, связи и слои*/
 @Slf4j
 public class Net implements Serializable {
-    public static float NEGATIVE_SAMPLING_VALUE = -666F; //константа для NEGATIVE_SAMPLING. Не поддерживается. Смысл в том чтобы не бежать во всем выходным нейрона (for (int curr = 0; curr < currSize; curr++)) а только по нужным  if (layer == sizes.length - 1) {Arrays.fill(deltaLayer, 0f); for (int idx = 0; idx < example.activeIndices.length; idx++) {int curr = example.activeIndices[idx];
-
     interface FloatUnaryOp extends Serializable { float apply(float x);}
     interface FloatBinaryOp extends Serializable { float apply(float a, float b);}
 
@@ -84,13 +82,14 @@ public class Net implements Serializable {
 
         RELU(
                 x -> x > 0 ? x : 0.01f * x,
-                (i, o) -> i > 0 ? 1f : 0.01f)
-        ,
+                (i, o) -> i > 0 ? 1f : 0.01f
+        ),
 
         SOFTMAX(
                 x -> x,
-                (i, o) -> 1f)
-        ; // активация-заглушка, softmax применяется отдельно
+                (i, o) -> 1f
+        )// активация-заглушка, softmax применяется отдельно
+        ;
 
         public final FloatUnaryOp activation; //функция активации: (входное-значение-нейрона) -> выходное-значение-нейрона
         public final FloatBinaryOp derivative; //производная функции активации: (входное-значенией-нейрона, выходное-значение-нейрона) -> значение производной
