@@ -1,4 +1,4 @@
-package neiro.simple.mlp.old.ver3Fast;
+package neiro.simple.mlp.old.ver2Fast;
 
 import neiro.simple.mlp.old.ver2.WeightWrapper;
 import neiro.simple.mlp.old.ver2.model.INetMLP;

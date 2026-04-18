@@ -1,4 +1,4 @@
-package neiro.simple.mlp.old.ver3Fast;
+package neiro.simple.mlp.old.ver2Fast;
 
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
