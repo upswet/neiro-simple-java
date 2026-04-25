@@ -27,6 +27,10 @@ public class Adam implements Optimizer {
         this.t = 0;
     }
 
+    public Adam(float learningRate) {
+        this(learningRate, 0.9f, 0.999f, 1e-8f);
+    }
+
     @Override
     public void update(List<Parameter> parameters) {
         t++;

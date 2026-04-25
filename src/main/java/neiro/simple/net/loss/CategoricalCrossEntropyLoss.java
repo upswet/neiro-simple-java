@@ -3,8 +3,10 @@ package neiro.simple.net.loss;
 import neiro.simple.net.Tensor;
 
 /**
- * Категориальная кросс-энтропия для one-hot меток.
- * Ожидается, что predicted уже прошёл через Softmax.
+ * Категориальная кросс-энтропия (CategoricalCrossEntropyLoss) для one-hot меток.
+ * Когда использовать: многоклассовая классификация с взаимоисключающими классами (например, MNIST, CIFAR-10, классификация изображений).
+ *
+ * Особенности: требует Softmax на последнем слое. Хорошо работает при сбалансированных данных.
  */
 public class CategoricalCrossEntropyLoss implements Loss {
     private static final float EPS = 1e-7f;

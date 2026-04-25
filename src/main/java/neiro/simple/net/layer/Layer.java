@@ -42,4 +42,6 @@ public interface Layer {
      * @param next следующий слой (может быть null)
      */
     default void initializeParameters(Layer prev, Layer next){};
+
+    default void setTraining(boolean training) {}
 }

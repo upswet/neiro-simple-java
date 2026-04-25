@@ -3,7 +3,8 @@ package neiro.simple.net.loss;
 import neiro.simple.net.Tensor;
 
 /**
- * Бинарная кросс-энтропия для сигмоидных выходов.
+ Бинарная кросс-энтропия (BinaryCrossEntropyLoss)
+ Когда использовать: бинарная классификация или многоклассовая с мульти-лейблами (например, наличие нескольких тегов у изображения). Последний слой – Sigmoid.
  */
 public class BinaryCrossEntropyLoss implements Loss {
     private static final float EPS = 1e-7f;
