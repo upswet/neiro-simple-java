@@ -1,6 +1,7 @@
 package neiro.simple.nlputil.word2vec;
 
 import lombok.extern.slf4j.Slf4j;
+import neiro.simple.mlp.util.FileUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -25,7 +26,7 @@ import java.util.*;
  * </p>
  */
 @Slf4j
-public class FastTextSubword {
+public class FastTextSubword implements Serializable {
     // ===================== Гиперпараметры =====================
     private final int dim;                 // размерность векторов
     private final double initialLr;        // начальный learning rate
@@ -555,35 +556,46 @@ public class FastTextSubword {
      * проверяет линейные отношения между векторами.
      */
     public static void main(String[] args) throws IOException {
+        List<List<String>> externalCorpus = readCorpusFromDirectory("d:\\Work\\Project\\0files\\0corpus\\"); // Чтение корпуса
+        
         // Создаём модель с subsampling (параметр gamma = 0.95 для экспоненциального затухания)
         FastTextSubword ft = new FastTextSubword(
-                20,    // размерность векторов
+                30,    // размерность векторов
                 0.02,  // начальный learning rate
                 0.95,  // коэффициент экспоненциального затухания lr
-                2,     // окно (слова слева и справа)
+                3,     // окно (слова слева и справа)
                 3,     // минимальная длина n-граммы
                 6,     // максимальная длина n-граммы
                 5      // количество отрицательных примеров
         );
 
-        // Чтение корпуса
-        List<List<String>> externalCorpus = readCorpusFromDirectory("d:\\Work\\Project\\0files\\0corpus\\");
         ft.buildVocab(externalCorpus);
 
+        //FileUtils.save("ft1",ft);
+        //FastTextSubword ft= (FastTextSubword) FileUtils.load("ft1");
+
         // Обучение с одной аналогией для мониторинга
-        ft.train(externalCorpus, 30, List.of(
+        ft.train(externalCorpus, 60, List.of(
                 new Analogy("князь", "мужчина", "женщина", "княгиня")
                 ,new Analogy("лорд", "мужчина", "женщина", "леди")
                 ,new Analogy("гриффиндор", "лев", "змея", "слизерин")
         ));
 
         // Проверка результатов
-        log.info("Ближайшие к 'лолита': {}", ft.getNearestWords(ft.getWordVector("лолита"), 5));
+        log.info("Ближайшие к 'попа': {}", ft.getNearestWords(ft.getWordVector("попа"), 10));
+        log.info("Ближайшие к 'гриффиндор': {}", ft.getNearestWords(ft.getWordVector("гриффиндор"), 10));
+        log.info("Ближайшие к 'слизерин': {}", ft.getNearestWords(ft.getWordVector("слизерин"), 10));
         log.info("Ближайшие к 'сказал': {}", ft.getNearestWords(ft.getWordVector("сказал"), 10));
         log.info("Ближайшие к 'сделал': {}", ft.getNearestWords(ft.getWordVector("сделал"), 10));
         log.info("Ближайшие к 'умер': {}", ft.getNearestWords(ft.getWordVector("умер"), 10));
         log.info("Ближайшие к 'мужчина': {}", ft.getNearestWords(ft.getWordVector("мужчина"), 10));
         log.info("Ближайшие к 'женщина': {}", ft.getNearestWords(ft.getWordVector("женщина"), 10));
+        log.info("Ближайшие к 'гриффиндор - лев + змея': {}",
+                ft.getNearestWords(addVectors(subtractVectors(ft.getWordVector("гриффиндор"), ft.getWordVector("лев")),
+                        ft.getWordVector("змея")), 10));
+        log.info("Ближайшие к 'лорд - мужчина + женщина': {}",
+                ft.getNearestWords(addVectors(subtractVectors(ft.getWordVector("лорд"), ft.getWordVector("мужчина")),
+                        ft.getWordVector("женщина")), 10));
         log.info("Ближайшие к 'князь - мужчина + женщина': {}",
                 ft.getNearestWords(addVectors(subtractVectors(ft.getWordVector("князь"), ft.getWordVector("мужчина")),
                         ft.getWordVector("женщина")), 10));
@@ -597,6 +609,8 @@ public class FastTextSubword {
                         subtractVectors(ft.getWordVector("любимый"), ft.getWordVector("любимая")),
                         subtractVectors(ft.getWordVector("мужчина"), ft.getWordVector("женщина"))
                 ));
+
+        FileUtils.save("ft1",ft);
     }
 }
 
